@@ -67,6 +67,11 @@ class StreamTextResult:
     # Futures/promises – populated internally by ``_consume_stream``.
     _text_parts: List[str]
 
+    # Extended metadata populated when stream ends (if available)
+    finish_reason: str | None = None
+    usage: Optional[TokenUsage] = None
+    provider_metadata: Optional[Dict[str, Any]] = None
+
     async def text(self) -> str:  # noqa: D401  # keep parity with TS SDK
         """Return the **full** generated text once the stream has ended."""
         # Consume the stream lazily – only if the caller actually awaits it.
@@ -166,12 +171,30 @@ def generate_text(
     )
 
 
+# ---------------------------------------------------------------------------
+# StreamText implementation with callbacks
+# ---------------------------------------------------------------------------
+
+
+from typing import Callable, Awaitable, Coroutine
+import asyncio
+
+
+ChunkCallback = Callable[[str], Awaitable[None] | None]
+ErrorCallback = Callable[[Exception], Awaitable[None] | None]
+FinishCallback = Callable[[str], Awaitable[None] | None]
+
+
 def stream_text(
     *,
     model: LanguageModel,
     prompt: str | None = None,
     system: str | None = None,
     messages: Optional[List[AnyMessage]] = None,
+    on_chunk: ChunkCallback | None = None,
+    on_error: ErrorCallback | None = None,
+    on_finish: FinishCallback | None = None,
+    # future args accepted via **kwargs for providerOptions etc.
     **kwargs: Any,
 ) -> StreamTextResult:
     """Stream text from the language model.
@@ -197,10 +220,27 @@ def stream_text(
 
     captured_parts: List[str] = []
 
-    async def _capturing_wrapper() -> AsyncIterator[str]:  # noqa: D401
-        async for chunk in stream_iter:
-            captured_parts.append(chunk)
-            yield chunk
+    async def _capturing_wrapper() -> AsyncIterator[str]:
+        try:
+            async for chunk in stream_iter:
+                captured_parts.append(chunk)
+                if on_chunk:
+                    maybe_cor = on_chunk(chunk)
+                    if asyncio.iscoroutine(maybe_cor):
+                        await maybe_cor
+                yield chunk
+        except Exception as exc:  # noqa: BLE001
+            if on_error:
+                maybe = on_error(exc)  # type: ignore[arg-type]
+                if asyncio.iscoroutine(maybe):
+                    await maybe
+            raise
+        finally:
+            if on_finish:
+                full_text = "".join(captured_parts)
+                maybe = on_finish(full_text)
+                if asyncio.iscoroutine(maybe):
+                    await maybe
 
     return StreamTextResult(
         text_stream=_capturing_wrapper(), _text_parts=captured_parts
