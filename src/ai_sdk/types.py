@@ -176,3 +176,79 @@ AnyMessage = Union[
     CoreAssistantMessage,
     CoreToolMessage,
 ]
+
+# ---------------------------------------------------------------------------
+# Additional result-related types
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TokenUsage:
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+    def to_dict(self) -> dict[str, int]:
+        return asdict(self)
+
+
+@dataclass
+class Source:
+    id: Optional[str] = None
+    url: Optional[str] = None
+    title: Optional[str] = None
+    provider_metadata: Optional[Dict[str, Any]] = None
+    source_type: Literal["url"] = "url"
+
+    def to_dict(self) -> dict[str, Any]:
+        d = asdict(self)
+        d["sourceType"] = d.pop("source_type")
+        return _alias(d)
+
+
+@dataclass
+class GeneratedFile:
+    base64: Optional[str] = None
+    uint8_array: Optional[bytes] = None
+    mime_type: Optional[str] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return _alias(asdict(self))
+
+
+# Tool calls & results -------------------------------------------------------
+
+
+@dataclass
+class ToolCall:
+    tool_call_id: Optional[str] = None
+    tool_name: Optional[str] = None
+    args: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return _alias(asdict(self))
+
+
+@dataclass
+class ToolResult:
+    tool_call_id: Optional[str] = None
+    tool_name: Optional[str] = None
+    result: Any = None
+    is_error: Optional[bool] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return _alias(asdict(self))
+
+
+# Reasoning detail -----------------------------------------------------------
+
+
+@dataclass
+class ReasoningDetail:
+    type: Optional[Literal["text", "redacted"]] = None
+    text: Optional[str] = None
+    data: Optional[str] = None
+    signature: Optional[str] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return _alias(asdict(self))

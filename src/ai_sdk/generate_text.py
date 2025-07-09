@@ -10,7 +10,15 @@ from dataclasses import dataclass
 from typing import Any, AsyncIterator, Dict, List, Optional, TypedDict
 
 from .providers.language_model import LanguageModel
-from .types import AnyMessage  # type: ignore
+from .types import (
+    AnyMessage,
+    ReasoningDetail,
+    Source,
+    GeneratedFile,
+    ToolCall,
+    ToolResult,
+    TokenUsage,
+)  # type: ignore
 
 __all__ = [
     "GenerateTextResult",
@@ -37,7 +45,13 @@ class GenerateTextResult:
 
     text: str
     finish_reason: str | None = None
-    usage: Optional[_Usage] = None
+    usage: Optional[TokenUsage] = None
+    reasoning: Optional[str] = None
+    reasoning_details: Optional[List[ReasoningDetail]] = None
+    sources: Optional[List[Source]] = None
+    files: Optional[List[GeneratedFile]] = None
+    tool_calls: Optional[List[ToolCall]] = None
+    tool_results: Optional[List[ToolResult]] = None
     provider_metadata: Dict[str, Any] | None = None
     raw_response: Any | None = None
 
@@ -112,9 +126,43 @@ def generate_text(
     return GenerateTextResult(
         text=raw.get("text", ""),
         finish_reason=raw.get("finish_reason"),
-        usage=raw.get("usage"),
+        usage=(
+            TokenUsage(
+                prompt_tokens=raw["usage"].get("prompt_tokens", 0),
+                completion_tokens=raw["usage"].get("completion_tokens", 0),
+                total_tokens=raw["usage"].get("total_tokens", 0),
+            )
+            if raw.get("usage")
+            else None
+        ),
         provider_metadata=raw.get("provider_metadata"),
         raw_response=raw.get("raw_response"),
+        reasoning=raw.get("reasoning"),
+        reasoning_details=[
+            ReasoningDetail(**d) for d in raw.get("reasoning_details", [])
+        ]
+        if raw.get("reasoning_details")
+        else None,
+        sources=[Source(**s) for s in raw.get("sources", [])]
+        if raw.get("sources")
+        else None,
+        files=[GeneratedFile(**f) for f in raw.get("files", [])]
+        if raw.get("files")
+        else None,
+        tool_calls=[
+            ToolCall(**tc)
+            for tc in raw.get("tool_calls", [])
+            if isinstance(tc, dict) and tc.get("tool_name")
+        ]
+        if raw.get("tool_calls")
+        else None,
+        tool_results=[
+            ToolResult(**tr)
+            for tr in raw.get("tool_results", [])
+            if isinstance(tr, dict) and tr.get("tool_name")
+        ]
+        if raw.get("tool_results")
+        else None,
     )
 
 
@@ -147,4 +195,13 @@ def stream_text(
         **kwargs,
     )
 
-    return StreamTextResult(text_stream=stream_iter, _text_parts=[])
+    captured_parts: List[str] = []
+
+    async def _capturing_wrapper() -> AsyncIterator[str]:  # noqa: D401
+        async for chunk in stream_iter:
+            captured_parts.append(chunk)
+            yield chunk
+
+    return StreamTextResult(
+        text_stream=_capturing_wrapper(), _text_parts=captured_parts
+    )

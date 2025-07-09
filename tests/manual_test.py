@@ -1,33 +1,51 @@
 import asyncio
-import json
+import os
 
 from dotenv import load_dotenv
 
-load_dotenv()  # loads OPENAI_API_KEY from .env
+load_dotenv()
 
 from ai_sdk import generate_text, stream_text, openai
+from ai_sdk.types import CoreSystemMessage, CoreUserMessage, TextPart
+
+MODEL_ID = os.getenv("AI_SDK_TEST_MODEL", "gpt-3.5-turbo")
 
 
-async def main() -> None:
-    model = openai("gpt-4.1-mini")
-
-    # ------------------------------------------------------------------
-    # 1. Non-streaming generation
-    # ------------------------------------------------------------------
+async def demo_generate_prompt(model):
+    print("\n-- Prompt-only generate_text --")
     res = generate_text(model=model, prompt="Say hello from the Python AI SDK port.")
-    print("\n=== generate_text result ===\n", res.text)
-    print(res)
+    print("Text:", res.text)
+    print("Usage:", res.usage)
 
-    # ------------------------------------------------------------------
-    # 2. Streaming generation
-    # ------------------------------------------------------------------
-    print("\n=== stream_text deltas ===")
-    stream_res = stream_text(model=model, prompt="Tell me a short Python joke.")
-    async for delta in stream_res.text_stream:
+
+async def demo_generate_messages(model):
+    print("\n-- Message-based generate_text --")
+    messages = [
+        CoreSystemMessage(content="You are a helpful assistant."),
+        CoreUserMessage(content=[TextPart(text="Respond with the single word 'ack'.")]),
+    ]
+    res = generate_text(model=model, messages=messages)
+    print("Text:", res.text)
+
+
+async def demo_stream(model):
+    print("\n-- Streaming example --")
+    result = stream_text(model=model, prompt="Tell a short Python joke.")
+    collected = []
+    async for delta in result.text_stream:
         print(delta, end="", flush=True)
+        collected.append(delta)
+    print()
+    full = await result.text()
+    print("Full:", full)
+    assert full == "".join(collected)
 
-    full_text = await stream_res.text()
-    print("\n\n=== stream_text full ===\n", full_text)
+
+async def main():
+    model = openai(MODEL_ID)
+    await demo_generate_prompt(model)
+    await demo_generate_messages(model)
+    await demo_stream(model)
 
 
 if __name__ == "__main__":
