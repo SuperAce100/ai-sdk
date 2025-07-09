@@ -178,6 +178,42 @@ AnyMessage = Union[
 ]
 
 # ---------------------------------------------------------------------------
+# On-step callback result structure
+# ---------------------------------------------------------------------------
+
+
+from datetime import datetime
+from typing import Literal
+
+
+@dataclass(slots=True)
+class ResponseMetadata:
+    """Lightweight view of a provider response used by the on_step callback."""
+
+    id: str | None = None
+    model: str | None = None
+    timestamp: datetime | None = None
+    headers: Optional[Dict[str, str]] = None
+    body: Any = None
+
+
+@dataclass(slots=True)
+class OnStepFinishResult:
+    """Detailed information passed to *on_step* callbacks."""
+
+    step_type: Literal["initial", "continue", "tool-result"]
+    finish_reason: Optional[str] = None
+    usage: Optional[TokenUsage] = None
+    text: str = ""
+    tool_calls: Optional[List[ToolCall]] = None
+    tool_results: Optional[List[ToolResult]] = None
+    warnings: Optional[List[str]] = None
+    response: ResponseMetadata | None = None
+    is_continued: bool = False
+    provider_metadata: Optional[Dict[str, Any]] = None
+
+
+# ---------------------------------------------------------------------------
 # Additional result-related types
 # ---------------------------------------------------------------------------
 

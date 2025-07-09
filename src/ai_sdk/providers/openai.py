@@ -53,11 +53,39 @@ class OpenAIModel(LanguageModel):
         text = choice.message.content or ""
         finish_reason = choice.finish_reason or "unknown"
 
+        # ------------------------------------------------------------------
+        # Extract *tool_calls* if present.  The OpenAI SDK exposes them on the
+        # message object as ``tool_calls`` – each item contains ``id`` and a
+        # nested ``function`` object with ``name`` + ``arguments``.
+        # ------------------------------------------------------------------
+        tool_calls = []
+        if getattr(choice.message, "tool_calls", None):
+            import json as _json
+
+            for call in choice.message.tool_calls:  # type: ignore[attr-defined]
+                try:
+                    args_dict = _json.loads(call.function.arguments)
+                except Exception:  # noqa: BLE001 – handle unparsable JSON
+                    args_dict = {"raw": call.function.arguments}
+
+                tool_calls.append(
+                    {
+                        "tool_call_id": call.id,
+                        "tool_name": call.function.name,
+                        "args": args_dict,
+                    }
+                )
+
+            # Per the OpenAI spec, the *finish_reason* is set to ``tool_calls``
+            # when the assistant returns function invocations.
+            finish_reason = "tool"
+
         return {
             "text": text,
             "finish_reason": finish_reason,
             "usage": resp.usage.model_dump() if hasattr(resp, "usage") else None,
             "raw_response": resp,
+            "tool_calls": tool_calls or None,
         }
 
     def stream_text(
