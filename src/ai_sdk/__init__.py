@@ -9,6 +9,7 @@ that existing examples translate 1-to-1.
 """
 
 from .generate_text import generate_text, stream_text  # noqa: F401  (re-export)
+from .generate_object import generate_object, stream_object  # noqa: F401
 from .providers.openai import openai  # noqa: F401
 from .tool import tool as tool  # noqa: F401, re-export helper
 from .tool import Tool as Tool  # noqa: F401, re-export class
@@ -16,6 +17,8 @@ from .tool import Tool as Tool  # noqa: F401, re-export class
 __all__ = [
     "generate_text",
     "stream_text",
+    "generate_object",
+    "stream_object",
     "openai",
     "tool",
     "Tool",

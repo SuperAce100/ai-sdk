@@ -17,7 +17,7 @@ existing downstream code.
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------
 # Helper – explicit camelCase alias mapping (kept identical to old version)
@@ -195,7 +195,7 @@ class TokenUsage(_SDKBaseModel):
 class ToolCall(_SDKBaseModel):
     tool_call_id: Optional[str] = None
     tool_name: Optional[str] = None
-    args: Dict[str, Any] = {}
+    args: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ToolResult(_SDKBaseModel):

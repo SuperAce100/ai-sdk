@@ -1,0 +1,257 @@
+from __future__ import annotations
+
+"""High-level helpers that mirror *generate_text* / *stream_text* but return a
+Pydantic model instance following a caller-supplied schema.
+
+Implementation strategy – provider-agnostic:
+1. We delegate to the *existing* provider.generate_text / .stream_text methods.
+2. The returned text **must** be valid JSON that conforms to the supplied
+   Pydantic *schema* – the caller is responsible for crafting their prompt /
+   messages to ensure this.  We still run a best-effort extraction if the model
+   wraps the JSON in Markdown fences or prefixes it with prose.
+"""
+
+from typing import Any, AsyncIterator, Dict, Generic, List, Optional, Type, TypeVar, Callable
+import json as _json
+import re
+
+from pydantic import BaseModel, ValidationError
+
+from .providers.language_model import LanguageModel
+from .types import TokenUsage, AnyMessage  # Re-use for consistency with text helpers
+
+# ---------------------------------------------------------------------------
+# Generic typing helpers
+# ---------------------------------------------------------------------------
+
+T = TypeVar("T", bound=BaseModel)
+
+
+# ---------------------------------------------------------------------------
+# Result containers – kept intentionally lightweight (slots=True)
+# ---------------------------------------------------------------------------
+
+
+class GenerateObjectResult(Generic[T]):
+    __slots__ = (
+        "object",
+        "finish_reason",
+        "usage",
+        "provider_metadata",
+        "raw_response",
+        "raw_text",
+    )
+
+    def __init__(
+        self,
+        *,
+        object: T,
+        finish_reason: str | None,
+        usage: Optional[TokenUsage],
+        provider_metadata: Dict[str, Any] | None,
+        raw_response: Any | None,
+        raw_text: str,
+    ) -> None:
+        self.object = object
+        self.finish_reason = finish_reason
+        self.usage = usage
+        self.provider_metadata = provider_metadata
+        self.raw_response = raw_response
+        self.raw_text = raw_text  # original model output for debugging
+
+    def model_dump(self) -> Dict[str, Any]:  # convenience passthrough
+        return self.object.model_dump()
+
+
+class StreamObjectResult(Generic[T]):
+    """Return type for *stream_object* – exposes an async iterator as well as a
+    helper that returns the full parsed object once the stream ends.
+    """
+
+    __slots__ = (
+        "object_stream",
+        "_text_parts",
+        "finish_reason",
+        "usage",
+        "provider_metadata",
+    )
+
+    def __init__(
+        self,
+        *,
+        object_stream: AsyncIterator[str],
+        text_parts: List[str],
+        finish_reason: str | None = None,
+        usage: Optional[TokenUsage] = None,
+        provider_metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.object_stream = object_stream
+        self._text_parts = text_parts
+        self.finish_reason = finish_reason
+        self.usage = usage
+        self.provider_metadata = provider_metadata
+
+    async def object(self, schema: Type[T]) -> T:  # noqa: D401
+        """Return the parsed object once the stream has finished."""
+
+        if not self._text_parts:
+            await self._consume_stream()
+        full_text = "".join(self._text_parts)
+        return _parse_to_schema(full_text, schema)
+
+    # ------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------
+
+    async def _consume_stream(self) -> None:
+        async for part in self.object_stream:
+            self._text_parts.append(part)
+
+
+# ---------------------------------------------------------------------------
+# Public helpers
+# ---------------------------------------------------------------------------
+
+
+def generate_object(
+    *,
+    model: LanguageModel,
+    schema: Type[T],
+    prompt: str | None = None,
+    system: str | None = None,
+    messages: Optional[List[AnyMessage]] = None,
+    **kwargs: Any,
+) -> GenerateObjectResult[T]:
+    """Synchronously generate an *object* that conforms to *schema*.
+
+    The call signature intentionally mirrors :func:`ai_sdk.generate_text` – the
+    caller can either provide a *prompt* or a pre-built *messages* array.
+    """
+
+    serialised_messages: Optional[List[Dict[str, Any]]] = None
+    if messages is not None:
+        serialised_messages = [m.to_dict() for m in messages]  # type: ignore[attr-defined]
+
+    raw = model.generate_text(
+        prompt=prompt,
+        system=system,
+        messages=serialised_messages,
+        **kwargs,
+    )
+
+    text = raw.get("text", "")
+    obj = _parse_to_schema(text, schema)
+
+    usage = None
+    if raw.get("usage"):
+        usage = TokenUsage(
+            prompt_tokens=raw["usage"].get("prompt_tokens", 0),
+            completion_tokens=raw["usage"].get("completion_tokens", 0),
+            total_tokens=raw["usage"].get("total_tokens", 0),
+        )
+
+    return GenerateObjectResult(
+        object=obj,
+        finish_reason=raw.get("finish_reason"),
+        usage=usage,
+        provider_metadata=raw.get("provider_metadata"),
+        raw_response=raw.get("raw_response"),
+        raw_text=text,
+    )
+
+
+def stream_object(
+    *,
+    model: LanguageModel,
+    schema: Type[T],
+    prompt: str | None = None,
+    system: str | None = None,
+    messages: Optional[List[AnyMessage]] = None,
+    on_chunk: Optional[Callable[[str], Any]] = None,
+    **kwargs: Any,
+) -> StreamObjectResult[T]:
+    """Stream an object – returns deltas immediately while allowing callers to
+    await the fully-parsed object at the end.
+    """
+
+    serialised_messages: Optional[List[Dict[str, Any]]] = None
+    if messages is not None:
+        serialised_messages = [m.to_dict() for m in messages]  # type: ignore[attr-defined]
+
+    stream = model.stream_text(
+        prompt=prompt,
+        system=system,
+        messages=serialised_messages,
+        **kwargs,
+    )
+
+    collected: List[str] = []
+
+    async def _forward() -> AsyncIterator[str]:
+        async for delta in stream:
+            if on_chunk:
+                try:
+                    on_chunk(delta)
+                except Exception:  # noqa: BLE001
+                    pass
+            collected.append(delta)
+            yield delta
+
+    return StreamObjectResult(
+        object_stream=_forward(),
+        text_parts=collected,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Private helpers
+# ---------------------------------------------------------------------------
+
+
+def _extract_json_block(text: str) -> str:
+    """Return the *first* JSON object contained in *text*.
+
+    1. If the entire string is valid JSON, return it as-is.
+    2. Otherwise, attempt to locate the first top-level ``{...}`` block.
+    """
+
+    text = text.strip()
+
+    # Fast path – the whole string is JSON.
+    try:
+        _json.loads(text)
+        return text
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Markdown code fences (```json ... ```)
+    code_block = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if code_block:
+        candidate = code_block.group(1).strip()
+        try:
+            _json.loads(candidate)
+            return candidate
+        except Exception:  # noqa: BLE001
+            pass
+
+    # Braces search – very naive but good enough for first implementation.
+    brace_match = re.search(r"\{[\s\S]*\}", text)
+    if brace_match:
+        candidate = brace_match.group(0)
+        try:
+            _json.loads(candidate)
+            return candidate
+        except Exception:  # noqa: BLE001
+            pass
+
+    raise ValueError("Could not find a valid JSON object in model output.")
+
+
+def _parse_to_schema(text: str, schema: Type[T]) -> T:
+    """Validate + parse *text* (JSON string) into *schema* instance."""
+
+    json_str = _extract_json_block(text)
+    try:
+        return schema.model_validate_json(json_str)
+    except ValidationError as exc:
+        raise ValueError("Model output does not conform to the expected schema") from exc

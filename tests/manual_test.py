@@ -4,6 +4,7 @@
 
 import asyncio
 import os
+from typing import List, Optional
 
 # Optional dependency – only used to load .env during local development.
 try:
@@ -13,8 +14,10 @@ try:
 except ModuleNotFoundError:
     pass  # run fine without python-dotenv
 
-from ai_sdk import generate_text, stream_text, openai, tool
+from ai_sdk import generate_text, stream_text, generate_object, stream_object, openai, tool
 from ai_sdk.types import CoreSystemMessage, CoreUserMessage, TextPart
+from pydantic import BaseModel
+
 
 MODEL_ID = os.getenv("AI_SDK_TEST_MODEL", "gpt-4o-mini")
 
@@ -106,6 +109,38 @@ async def demo_tool_call_streaming(model):
     print("Full:", full)
     assert full == "".join(collected)
 
+class RandomNumberDetails(BaseModel):
+    number: int
+    is_even: bool
+    factors: List[int]
+    description: Optional[str] = None
+
+# ---------------------------------------------------------------------------
+# Object generation demos (complex schema)
+# ---------------------------------------------------------------------------
+
+async def demo_generate_object(model):
+    print("\n-- Generate object example --")
+    prompt = (
+        'Respond with JSON like {"number": 57, "is_even": false, '
+        '"factors": [1, 3, 19, 57], "description": "57 is an odd number. Its factors are 1, 3, 19, and 57."} (no markdown).'
+    )
+    res = generate_object(model=model, schema=RandomNumberDetails, prompt=prompt)
+    print("Object:", res.object)
+
+async def demo_stream_object(model):
+    print("\n-- Stream object example --")
+    prompt = (
+        'Respond with JSON like {"number": 42, "is_even": true, '
+        '"factors": [1, 2, 3, 6, 7, 14, 21, 42], "description": "42 is an even number. Its factors are 1, 2, 3, 6, 7, 14, 21, and 42."} (no markdown).'
+    )
+    result = stream_object(model=model, schema=RandomNumberDetails, prompt=prompt)
+    collected = []
+    async for delta in result.object_stream:
+        print(delta, end="", flush=True)
+        collected.append(delta)
+    obj = await result.object(RandomNumberDetails)
+    print("\nObject:", obj)
 
 async def main():
     model = openai(MODEL_ID)
@@ -114,7 +149,9 @@ async def main():
     await demo_stream(model)
     await demo_tool_call(model)
     await demo_tool_call_streaming(model)
-
+    await demo_generate_object(model)
+    await demo_stream_object(model)
+    
 
 if __name__ == "__main__":
     asyncio.run(main())

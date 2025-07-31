@@ -1,15 +1,15 @@
-import asyncio
 import os
 
 import pytest
 from dotenv import load_dotenv
 
-from ai_sdk import generate_text, stream_text, openai
+from ai_sdk import generate_text, stream_text, generate_object, stream_object, openai
 from ai_sdk.types import (
     CoreSystemMessage,
     CoreUserMessage,
     TextPart,
 )
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -56,3 +56,47 @@ async def test_stream_text_iterable():
     # ensure concatenation of deltas equals final text
     assert full_text == "".join(collected)
     assert full_text.lower().count("foo") >= 5
+
+
+# ---------------------------------------------------------------------------
+# New object-generation tests
+# ---------------------------------------------------------------------------
+
+
+class AckSchema(BaseModel):
+    ack: str
+
+
+@pytest.mark.asyncio
+async def test_generate_object_simple():
+    """generate_object returns parsed Pydantic model instance."""
+
+    res = generate_object(
+        model=model,
+        schema=AckSchema,
+        prompt='Respond with JSON {"ack": "yes"} and nothing else.',
+    )
+    assert isinstance(res.object, AckSchema)
+    assert res.object.ack.lower() == "yes"
+    # Ensure raw_text keeps original string for debugging
+    assert "ack" in res.raw_text.lower()
+
+
+@pytest.mark.asyncio
+async def test_stream_object_iterable():
+    """stream_object yields chunks and returns full object on completion."""
+
+    result = stream_object(
+        model=model,
+        schema=AckSchema,
+        prompt='Respond with JSON {"ack": "foo"} and nothing else.',
+    )
+    collected = []
+    async for delta in result.object_stream:
+        collected.append(delta)
+
+    obj = await result.object(AckSchema)
+    assert isinstance(obj, AckSchema)
+    assert obj.ack.lower() == "foo"
+    # At least some chunks should have been streamed
+    assert collected
