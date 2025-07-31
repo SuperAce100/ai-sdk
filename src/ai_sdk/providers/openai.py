@@ -5,6 +5,11 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 import openai as _openai
 
 from .language_model import LanguageModel
+from .embedding_model import EmbeddingModel
+
+# ---------------------------------------------------------------------------
+# Chat completion models
+# ---------------------------------------------------------------------------
 
 
 class OpenAIModel(LanguageModel):
@@ -154,6 +159,87 @@ class OpenAIModel(LanguageModel):
 
 
 # ---------------------------------------------------------------------------
+# Embedding model implementation
+# ---------------------------------------------------------------------------
+
+
+class OpenAIEmbeddingModel(EmbeddingModel):
+    """Implementation of :class:`ai_sdk.providers.embedding_model.EmbeddingModel` for
+    OpenAI embedding models (e.g. ``text-embedding-3-small``)."""
+
+    # As of May 2024, the OpenAI *embeddings* endpoint accepts up to 2048 inputs
+    # per request (may vary).  We expose this as a *conservative* default.
+    max_batch_size: int | None = 2048
+
+    def __init__(
+        self,
+        model: str,
+        *,
+        api_key: Optional[str] = None,
+        max_batch_size: Optional[int] = None,
+        **default_kwargs: Any,
+    ) -> None:
+        self._client = _openai.OpenAI(api_key=api_key)
+        self._model = model
+        self._default_kwargs: Dict[str, Any] = default_kwargs
+        if max_batch_size is not None:
+            self.max_batch_size = max_batch_size  # type: ignore[assignment]
+
+    # ------------------------------------------------------------------
+    # EmbeddingModel interface
+    # ------------------------------------------------------------------
+
+    def embed_many(self, values: List[Any], **kwargs: Any) -> Dict[str, Any]:  # noqa: D401
+        if not values:
+            raise ValueError("values must contain at least one item.")
+
+        request_kwargs: Dict[str, Any] = {**self._default_kwargs, **kwargs}
+
+        # Helper performing a single provider call.
+        def _single_call(batch: List[Any]) -> Dict[str, Any]:
+            resp = self._client.embeddings.create(  # type: ignore[attr-defined]
+                model=self._model,
+                input=batch,
+                **request_kwargs,
+            )
+            embeddings_batch = [item.embedding for item in resp.data]  # type: ignore[attr-defined]
+            usage = None
+            if hasattr(resp, "usage"):
+                usage = resp.usage.model_dump()
+            return {
+                "embeddings": embeddings_batch,
+                "usage": usage,
+                "raw_response": resp,
+            }
+
+        # Fast-path – no splitting required.
+        if not self.max_batch_size or len(values) <= self.max_batch_size:
+            call_res = _single_call(values)
+            return {
+                "values": values,
+                **call_res,
+            }
+
+        # Otherwise, split into multiple requests.
+        embeddings: List[List[float]] = []
+        aggregated_tokens: int = 0
+        for i in range(0, len(values), self.max_batch_size):
+            sub_batch = values[i : i + self.max_batch_size]
+            part = _single_call(sub_batch)
+            embeddings.extend(part["embeddings"])
+            if part.get("usage") and "total_tokens" in part["usage"]:
+                aggregated_tokens += part["usage"]["total_tokens"]
+
+        usage = {"total_tokens": aggregated_tokens} if aggregated_tokens else None
+        return {
+            "values": values,
+            "embeddings": embeddings,
+            "usage": usage,
+            "raw_response": None,
+        }
+
+
+# ---------------------------------------------------------------------------
 # Helper utilities
 # ---------------------------------------------------------------------------
 
@@ -184,7 +270,7 @@ def _build_chat_messages(
 
 
 # ---------------------------------------------------------------------------
-# Public factory helper – mirrors the TypeScript "openai()" helper.
+# Public factory helpers
 # ---------------------------------------------------------------------------
 
 
@@ -200,3 +286,25 @@ def openai(
     >>> result = await generate_text(model=model, prompt="Hello!")
     """
     return OpenAIModel(model, api_key=api_key, **default_kwargs)
+
+
+def embedding(  # noqa: N802 – mimic TypeScript helper naming
+    model: str,
+    *,
+    api_key: Optional[str] = None,
+    **default_kwargs: Any,
+) -> OpenAIEmbeddingModel:
+    """Factory helper that returns an :class:`OpenAIEmbeddingModel` instance.
+
+    Mirrors ``openai.embedding(...)`` semantics from the TS SDK while staying
+    a simple function in Python.
+    """
+
+    return OpenAIEmbeddingModel(model, api_key=api_key, **default_kwargs)
+
+# ---------------------------------------------------------
+# Attach helper as attribute to the *openai* factory function
+# to emulate the "openai.embedding(...)" TypeScript API in
+#                              Python.
+# ---------------------------------------------------------
+setattr(openai, "embedding", embedding)  # type: ignore[attr-defined]
