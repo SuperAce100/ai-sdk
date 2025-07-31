@@ -5,7 +5,7 @@ import pytest
 
 from ai_sdk import embed_many, embed  # type: ignore
 from ai_sdk.embed import cosine_similarity
-from ai_sdk.providers.openai import openai as _openai  # Import factory
+from ai_sdk.providers.openai import embedding as _embedding  # Import factory
 
 # Skip real OpenAI calls if key missing
 pytestmark = pytest.mark.skipif(
@@ -16,7 +16,7 @@ pytestmark = pytest.mark.skipif(
 MODEL_ID = os.getenv("AI_SDK_EMBED_MODEL", "text-embedding-3-small")
 
 def _get_model():
-    return _openai.embedding(MODEL_ID)
+    return _embedding(MODEL_ID)
 
 
 def test_cosine_similarity_math():

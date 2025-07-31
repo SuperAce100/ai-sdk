@@ -5,6 +5,7 @@ import pytest
 
 from ai_sdk import generate_text, tool
 from ai_sdk.providers.language_model import LanguageModel
+from ai_sdk.types import CoreToolMessage
 
 # ---------------------------------------------------------------------------
 # Dummy provider – emulates tool calling behaviour without external network
@@ -50,8 +51,8 @@ class DummyModel(LanguageModel):
         elif self._call_count == 2:
             # The dummy model *echoes* whatever the tool result was.  In a real
             # conversation the LLM would continue reasoning here.
-            last_tool_msg = messages[-1]
-            result_value = json.loads(last_tool_msg["content"])
+            last_tool_msg = messages[-1] if messages else CoreToolMessage(role="tool", content=[])
+            result_value = json.loads(last_tool_msg.content[0].result)
             return {
                 "text": str(result_value),
                 "finish_reason": "stop",

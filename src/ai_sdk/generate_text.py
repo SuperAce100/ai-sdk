@@ -1,10 +1,10 @@
-from __future__ import annotations
-
-"""High-level helpers that mimic the Vercel AI SDK ``generateText`` and ``streamText`` APIs.
+"""
+High-level helpers that mimic the Vercel AI SDK ``generateText`` and ``streamText`` APIs.
 
 Only the subset required for a first Python port is implemented.  Additional
 flags and features will be added in the future.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import (
@@ -17,6 +17,8 @@ from typing import (
     Callable,
     Awaitable,
 )
+
+import asyncio
 
 from .providers.language_model import LanguageModel
 from .types import (
@@ -299,7 +301,6 @@ def generate_text(
         # ------------------------------------------------------------------
         assistant_tool_calls = []
         for tc in result.tool_calls:
-            import json as _json
 
             assistant_tool_calls.append(
                 {
@@ -371,8 +372,6 @@ def generate_text(
 # StreamText implementation with callbacks
 # ---------------------------------------------------------------------------
 
-
-import asyncio
 
 
 ChunkCallback = Callable[[str], Awaitable[None] | None]

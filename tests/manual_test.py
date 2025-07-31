@@ -14,7 +14,7 @@ try:
 except ModuleNotFoundError:
     pass  # run fine without python-dotenv
 
-from ai_sdk import generate_text, stream_text, generate_object, stream_object, openai, tool
+from ai_sdk import generate_text, stream_text, generate_object, stream_object, openai, tool, embed_many, cosine_similarity
 from ai_sdk.types import CoreSystemMessage, CoreUserMessage, TextPart
 from pydantic import BaseModel
 
@@ -150,24 +150,25 @@ async def demo_embed(_):
     print("\n-- Embedding example --")
 
     # Use a separate *embedding* model (text-embedding-3-small by default)
-    import os
-
     EMBED_MODEL_ID = os.getenv("AI_SDK_EMBED_MODEL", "text-embedding-3-small")
-    embedding_model = openai.embedding(EMBED_MODEL_ID)  # type: ignore[attr-defined]
+    embedding_model = openai.embedding(EMBED_MODEL_ID) # type: ignore
 
     values = [
-        "sunny day at the beach",
-        "rainy afternoon in the city",
-        "snowy night in the mountains",
+        "cat",
+        "dog",
+        "aerospace engineer",
+        "astronaut",
     ]
-
-    from ai_sdk import embed_many
-    from ai_sdk.embed import cosine_similarity
 
     res = embed_many(model=embedding_model, values=values)
     print("Embeddings lengths:", [len(e) for e in res.embeddings])
+
     sim = cosine_similarity(res.embeddings[0], res.embeddings[1])
     print("Cosine similarity of first two:", sim)
+    sim2 = cosine_similarity(res.embeddings[0], res.embeddings[2])
+    print("Cosine similarity of first and third:", sim2)
+    sim3 = cosine_similarity(res.embeddings[2], res.embeddings[3])
+    print("Cosine similarity of third and fourth:", sim3)
 
 
 async def main():

@@ -1,6 +1,5 @@
-from __future__ import annotations
-
-"""High-level helpers that mirror *generate_text* / *stream_text* but return a
+"""
+High-level helpers that mirror *generate_text* / *stream_text* but return a
 Pydantic model instance following a caller-supplied schema.
 
 Implementation strategy – provider-agnostic:
@@ -11,6 +10,7 @@ Implementation strategy – provider-agnostic:
    wraps the JSON in Markdown fences or prefixes it with prose.
 """
 
+from __future__ import annotations
 from typing import Any, AsyncIterator, Dict, Generic, List, Optional, Type, TypeVar, Callable
 import json as _json
 import re
@@ -18,7 +18,8 @@ import re
 from pydantic import BaseModel, ValidationError
 
 from .providers.language_model import LanguageModel
-from .types import TokenUsage, AnyMessage  # Re-use for consistency with text helpers
+from .types import TokenUsage, AnyMessage 
+
 
 # ---------------------------------------------------------------------------
 # Generic typing helpers

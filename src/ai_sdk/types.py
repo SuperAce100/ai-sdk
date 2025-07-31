@@ -1,6 +1,5 @@
-from __future__ import annotations
-
-"""Pydantic-based types mirroring the AI SDK Core *generateText* specification.
+"""
+Pydantic-based types mirroring the AI SDK Core *generateText* specification.
 
 All models inherit from `_SDKBaseModel` which provides two conveniences:
 
@@ -13,6 +12,7 @@ The public API of these classes stays **exactly** the same compared to the
 previous dataclass-based implementation, so no changes are required in
 existing downstream code.
 """
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union

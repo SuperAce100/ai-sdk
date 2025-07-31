@@ -117,7 +117,8 @@ class OpenAIModel(LanguageModel):
         )
         request_kwargs: Dict[str, Any] = {**self._default_kwargs, **kwargs}
 
-        import asyncio, threading
+        import asyncio
+        import threading
 
         async def _generator() -> AsyncIterator[str]:
             # ----------------------------------------------------------------

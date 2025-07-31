@@ -1,4 +1,9 @@
 from __future__ import annotations
+from .generate_text import generate_text, stream_text
+from .embed import embed_many, embed, cosine_similarity 
+from .generate_object import generate_object, stream_object
+from .providers.openai import openai
+from .tool import tool, Tool
 
 """Public entry-point for the *Python* port of Vercel's AI SDK.
 
@@ -8,12 +13,6 @@ provider.  The goal is to mirror the *ergonomics* of the TypeScript version so
 that existing examples translate 1-to-1.
 """
 
-from .generate_text import generate_text, stream_text  # noqa: F401  (re-export)
-from .embed import embed_many, embed, cosine_similarity  # noqa: F401
-from .generate_object import generate_object, stream_object  # noqa: F401
-from .providers.openai import openai  # noqa: F401
-from .tool import tool as tool  # noqa: F401, re-export helper
-from .tool import Tool as Tool  # noqa: F401, re-export class
 
 __all__ = [
     "generate_text",

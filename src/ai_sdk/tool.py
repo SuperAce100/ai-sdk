@@ -1,6 +1,5 @@
-from __future__ import annotations
-
-"""Lightweight *tool* helper mirroring the AI SDK TypeScript implementation.
+"""
+Lightweight *tool* helper mirroring the AI SDK TypeScript implementation.
 
 A *Tool* couples a JSON schema (name, description, parameters) with a Python
 handler function.  The :func:`tool` decorator behaves similar to the JavaScript
@@ -23,6 +22,9 @@ The resulting :class:`Tool` instance can be passed to
 :func:`ai_sdk.generate_text` / :func:`ai_sdk.stream_text` via the *tools*
 argument to enable iterative tool calling.
 """
+
+from __future__ import annotations
+
 
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, Union
