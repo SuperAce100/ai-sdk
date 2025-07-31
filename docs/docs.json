@@ -15,7 +15,7 @@
         "groups": [
           {
             "group": "Introduction",
-            "pages": ["ai-sdk/introduction", "ai-sdk/concepts"]
+            "pages": ["sdk/introduction", "sdk/concepts"]
           },
           {
             "group": "Guides",
@@ -28,7 +28,6 @@
             ]
           }
         ]
-        ]
       },
       {
         "tab": "Reference",
@@ -36,39 +35,34 @@
           {
             "group": "Functions",
             "pages": [
-              "ai-sdk/text-generation",
-              "ai-sdk/object-generation",
-              "ai-sdk/embeddings",
-              "ai-sdk/tool-calling"
+              "sdk/text-generation",
+              "sdk/object-generation",
+              "sdk/embeddings",
+              "sdk/tool-calling"
             ]
           },
           {
             "group": "Providers",
-            "pages": ["ai-sdk/providers"]
+            "pages": ["sdk/providers"]
           },
           {
             "group": "Types",
-            "pages": ["ai-sdk/types"]
+            "pages": ["sdk/types"]
           }
         ]
-      },
+      }
     ],
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub",
+          "href": "https://github.com/python-ai-sdk/sdk",
+          "icon": "github"
         },
         {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "PyPI",
+          "href": "https://pypi.org/project/ai-sdk-python/",
+          "icon": "python"
         }
       ]
     }

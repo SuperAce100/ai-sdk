@@ -50,17 +50,18 @@ GenerateTextResult
 
 ## Where does retry logic live?
 
-- **Embeddings** – batching & retries happen in the _helper_ (`embed_many`).
-- **Text generation** – delegate retries to the provider’s SDK since most include back-off handlers.
+- **Embeddings** - batching & retries happen in the _helper_ (`embed_many`).
+- **Text generation** - delegate retries to the provider's SDK since most include back-off handlers.
 
 ## Extending the SDK
 
 1. Implement `LanguageModel` or `EmbeddingModel`.
 2. Expose a public factory (e.g. `mycloud(model="x")`).
-3. Users instantly get the full helper surface – no changes elsewhere.
+3. Users instantly get the full helper surface - no changes elsewhere.
 
 <Tip>
-Keeping the abstraction layer razor-thin (<100 LOC per provider) makes it easy for the community to add new backends.
+  Keeping the abstraction layer razor-thin (less than 100 LOC per provider) makes it easy for the
+  community to add new backends.
 </Tip>
 
 ## Roadmap
@@ -69,4 +70,4 @@ Keeping the abstraction layer razor-thin (<100 LOC per provider) makes it easy f
 - Native image generation helpers
 - Automatic schema extraction for `generate_object`
 
-<Note>Open to contributions! Check the GitHub issues for “good first issue” labels.</Note>
+<Note>Open to contributions! Check the GitHub issues for "good first issue" labels.</Note>

@@ -1,0 +1,61 @@
+---
+title: "Introduction"
+description: "The Python AI SDK is a pure Python re-implementation of Vercel's popular AI SDK for TypeScript."
+icon: "python"
+---
+
+import { Card, CardGroup, Note, Tip, Steps, Step, CodeGroup, Check } from "mintlify/components";
+
+## Why another SDK?
+
+Python is the defacto language for AI. However, to actually get started with AI, you'll need to 1. use a bloated external framework and install a bunch of dependencies, or 2. use an incredibly confusing API client (to simply call an LLM, you need `client.chat.completions.create(**kwargs).result.choices[0].message.content`).
+
+### Features
+
+- Zero-configuration functions that work consistently across providers.
+- First-class **streaming** & **tool-calling** support.
+- <strong>Strong Pydantic types</strong> throughout - you know exactly what you're getting.
+- <strong>Strict</strong> structured-output generation and streaming via Pydantic models.
+- Provider-agnostic embeddings with built-in batching & retry logic.
+- Tiny dependency footprint - no bloated external frameworks.
+
+## Installation
+
+```bash
+pip install ai-sdk-python
+uv add ai-sdk-python
+```
+
+That's it - no extra build steps or config files.
+
+## Quick-start
+
+Get started in just a few lines of code.
+
+```python generate_text.py lines icon="python"
+from ai_sdk import openai, generate_text
+
+res = generate_text(
+  model=openai("gpt-4.1"),
+  prompt="Tell me a haiku about Python",
+)
+
+print(res.text)
+```
+
+## What's next?
+
+<CardGroup cols={2}>
+  <Card title="Text generation" href="/ai-sdk/text-generation" icon="comment-dots">
+    Generate or stream text with a single line of code.
+  </Card>
+  <Card title="Tool calling" href="/ai-sdk/tool-calling" icon="hammer">
+    Build agentic flows with real Python functions.
+  </Card>
+  <Card title="Embeddings" href="/ai-sdk/embeddings" icon="vector-circle">
+    Create vector embeddings and compute cosine similarity.
+  </Card>
+  <Card title="Structured output" href="/ai-sdk/object-generation" icon="boxes-packing">
+    Return fully-validated Pydantic objects - no messy JSON parsing.
+  </Card>
+</CardGroup>
