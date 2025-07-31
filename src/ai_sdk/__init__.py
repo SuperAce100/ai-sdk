@@ -1,9 +1,10 @@
 from __future__ import annotations
 from .generate_text import generate_text, stream_text
-from .embed import embed_many, embed, cosine_similarity 
+from .embed import embed_many, embed, cosine_similarity
 from .generate_object import generate_object, stream_object
 from .providers.openai import openai
 from .tool import tool, Tool
+from .providers.anthropic import anthropic
 
 """Public entry-point for the *Python* port of Vercel's AI SDK.
 
@@ -23,6 +24,7 @@ __all__ = [
     "embed",
     "cosine_similarity",
     "openai",
+    "anthropic",
     "tool",
     "Tool",
 ]

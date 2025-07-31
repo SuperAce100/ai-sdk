@@ -14,12 +14,22 @@ try:
 except ModuleNotFoundError:
     pass  # run fine without python-dotenv
 
-from ai_sdk import generate_text, stream_text, generate_object, stream_object, openai, tool, embed_many, cosine_similarity
+from ai_sdk import (
+    generate_text,
+    stream_text,
+    generate_object,
+    stream_object,
+    openai,
+    tool,
+    embed_many,
+    cosine_similarity,
+    anthropic,
+)
 from ai_sdk.types import CoreSystemMessage, CoreUserMessage, TextPart
 from pydantic import BaseModel
 
 
-MODEL_ID = os.getenv("AI_SDK_TEST_MODEL", "gpt-4o-mini")
+MODEL_ID = os.getenv("AI_SDK_TEST_MODEL", "claude-3-5-haiku-latest")
 
 
 # ---------------------------------------------------------------------------
@@ -109,15 +119,18 @@ async def demo_tool_call_streaming(model):
     print("Full:", full)
     assert full == "".join(collected)
 
+
 class RandomNumberDetails(BaseModel):
     number: int
     is_even: bool
     factors: List[int]
     description: Optional[str] = None
 
+
 # ---------------------------------------------------------------------------
 # Object generation demos (complex schema)
 # ---------------------------------------------------------------------------
+
 
 async def demo_generate_object(model):
     print("\n-- Generate object example --")
@@ -127,6 +140,7 @@ async def demo_generate_object(model):
     )
     res = generate_object(model=model, schema=RandomNumberDetails, prompt=prompt)
     print("Object:", res.object)
+
 
 async def demo_stream_object(model):
     print("\n-- Stream object example --")
@@ -138,12 +152,15 @@ async def demo_stream_object(model):
     def on_partial(obj):
         print("Partial:", obj)
 
-    result = stream_object(model=model, schema=RandomNumberDetails, prompt=prompt, on_partial=on_partial)
+    result = stream_object(
+        model=model, schema=RandomNumberDetails, prompt=prompt, on_partial=on_partial
+    )
     async for delta in result.object_stream:
         pass
 
     obj = await result.object(RandomNumberDetails)
     print("\nObject:", obj)
+
 
 async def demo_embed(_):
     """Demonstrate embedding generation + cosine similarity."""
@@ -151,7 +168,7 @@ async def demo_embed(_):
 
     # Use a separate *embedding* model (text-embedding-3-small by default)
     EMBED_MODEL_ID = os.getenv("AI_SDK_EMBED_MODEL", "text-embedding-3-small")
-    embedding_model = openai.embedding(EMBED_MODEL_ID) # type: ignore
+    embedding_model = openai.embedding(EMBED_MODEL_ID)  # type: ignore
 
     values = [
         "cat",
@@ -172,7 +189,8 @@ async def demo_embed(_):
 
 
 async def main():
-    model = openai(MODEL_ID)
+    # model = openai(MODEL_ID)
+    model = anthropic(MODEL_ID, api_key=os.getenv("ANTHROPIC_API_KEY"))
     await demo_generate_prompt(model)
     await demo_generate_messages(model)
     await demo_stream(model)
@@ -181,7 +199,7 @@ async def main():
     await demo_generate_object(model)
     await demo_stream_object(model)
     await demo_embed(model)
-    
+
 
 if __name__ == "__main__":
     asyncio.run(main())
