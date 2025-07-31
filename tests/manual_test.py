@@ -140,10 +140,35 @@ async def demo_stream_object(model):
 
     result = stream_object(model=model, schema=RandomNumberDetails, prompt=prompt, on_partial=on_partial)
     async for delta in result.object_stream:
-        print(delta)
+        pass
 
     obj = await result.object(RandomNumberDetails)
     print("\nObject:", obj)
+
+async def demo_embed(_):
+    """Demonstrate embedding generation + cosine similarity."""
+    print("\n-- Embedding example --")
+
+    # Use a separate *embedding* model (text-embedding-3-small by default)
+    import os
+
+    EMBED_MODEL_ID = os.getenv("AI_SDK_EMBED_MODEL", "text-embedding-3-small")
+    embedding_model = openai.embedding(EMBED_MODEL_ID)  # type: ignore[attr-defined]
+
+    values = [
+        "sunny day at the beach",
+        "rainy afternoon in the city",
+        "snowy night in the mountains",
+    ]
+
+    from ai_sdk import embed_many
+    from ai_sdk.embed import cosine_similarity
+
+    res = embed_many(model=embedding_model, values=values)
+    print("Embeddings lengths:", [len(e) for e in res.embeddings])
+    sim = cosine_similarity(res.embeddings[0], res.embeddings[1])
+    print("Cosine similarity of first two:", sim)
+
 
 async def main():
     model = openai(MODEL_ID)
@@ -154,6 +179,7 @@ async def main():
     await demo_tool_call_streaming(model)
     await demo_generate_object(model)
     await demo_stream_object(model)
+    await demo_embed(model)
     
 
 if __name__ == "__main__":

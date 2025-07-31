@@ -9,7 +9,7 @@ that existing examples translate 1-to-1.
 """
 
 from .generate_text import generate_text, stream_text  # noqa: F401  (re-export)
-from .embed import embed_many, embed  # noqa: F401
+from .embed import embed_many, embed, cosine_similarity  # noqa: F401
 from .generate_object import generate_object, stream_object  # noqa: F401
 from .providers.openai import openai  # noqa: F401
 from .tool import tool as tool  # noqa: F401, re-export helper
@@ -22,6 +22,7 @@ __all__ = [
     "stream_object",
     "embed_many",
     "embed",
+    "cosine_similarity",
     "openai",
     "tool",
     "Tool",

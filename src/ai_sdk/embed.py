@@ -18,6 +18,7 @@ __all__ = [
     "EmbedResult",
     "embed_many",
     "embed",
+    "cosine_similarity",
 ]
 
 
@@ -52,6 +53,33 @@ class EmbedResult:
     provider_metadata: Optional[Dict[str, Any]] = None
     raw_response: Any | None = None
 
+
+# ---------------------------------------------------------------------------
+# Utility helpers
+# ---------------------------------------------------------------------------
+
+
+def cosine_similarity(vec_a: Sequence[float], vec_b: Sequence[float]) -> float:  # noqa: D401
+    """Return the cosine similarity between *vec_a* and *vec_b*.
+
+    Raises
+    ------
+    ValueError
+        If the vectors have different lengths or zero magnitude.
+    """
+
+    if len(vec_a) != len(vec_b):
+        raise ValueError("Vectors must be of the same length.")
+
+    import math
+
+    dot = sum(x * y for x, y in zip(vec_a, vec_b))
+    norm_a = math.sqrt(sum(x * x for x in vec_a))
+    norm_b = math.sqrt(sum(y * y for y in vec_b))
+    if norm_a == 0 or norm_b == 0:
+        raise ValueError("Vectors must not be zero-vectors.")
+
+    return dot / (norm_a * norm_b)
 
 # ---------------------------------------------------------------------------
 # Public helpers
