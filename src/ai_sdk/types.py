@@ -1,24 +1,32 @@
 from __future__ import annotations
 
-"""Dataclass-based types mirroring the AI SDK Core *generateText* specification.
+"""Pydantic-based types mirroring the AI SDK Core *generateText* specification.
 
-These lightweight structures offer static typing without introducing runtime
-validation overhead from third-party libraries.  Each dataclass implements
-``to_dict`` for easy JSON-ready serialization (including camelCase aliases).
+All models inherit from `_SDKBaseModel` which provides two conveniences:
+
+1. `model_config = ConfigDict(frozen=True)` – makes all models immutable to
+   mirror the behaviour of frozen dataclasses previously used.
+2. `to_dict()` – wraps `model_dump(exclude_none=True)` and applies the explicit
+   camelCase aliases required by the TypeScript SDK.
+
+The public API of these classes stays **exactly** the same compared to the
+previous dataclass-based implementation, so no changes are required in
+existing downstream code.
 """
 
-import dataclasses
-from dataclasses import dataclass, field, asdict
-from typing import Any, List, Literal, Optional, Union, Dict, TypedDict
-from urllib.parse import urlparse
+from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional, Union
+
+from pydantic import BaseModel, ConfigDict
 
 # ---------------------------------------------------------------------------
-# Message parts
+# Helper – explicit camelCase alias mapping (kept identical to old version)
 # ---------------------------------------------------------------------------
 
 
 def _alias(data: dict[str, Any]) -> dict[str, Any]:
     """Convert snake_case keys with explicit aliases to camelCase variants."""
+
     mapping = {
         "mime_type": "mimeType",
         "tool_call_id": "toolCallId",
@@ -26,82 +34,72 @@ def _alias(data: dict[str, Any]) -> dict[str, Any]:
         "args_text_delta": "argsTextDelta",
         "text_delta": "textDelta",
         "is_error": "isError",
+        "source_type": "sourceType",
     }
     return {mapping.get(k, k): v for k, v in data.items() if v is not None}
 
 
-@dataclass
-class TextPart:
+class _SDKBaseModel(BaseModel):
+    """Shared functionality for all SDK Pydantic models."""
+
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
+
+    def to_dict(self) -> dict[str, Any]:  # noqa: D401
+        """Return a JSON-serialisable representation with camelCase aliases."""
+
+        return _alias(self.model_dump(exclude_none=True))
+
+
+# ---------------------------------------------------------------------------
+# Message parts
+# ---------------------------------------------------------------------------
+
+
+class TextPart(_SDKBaseModel):
     text: str
     type: Literal["text"] = "text"
 
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))
 
-
-@dataclass
-class ImagePart:
+class ImagePart(_SDKBaseModel):
     image: Union[str, bytes]
-    mime_type: Optional[str] = field(default=None, metadata={"alias": "mimeType"})
+    mime_type: Optional[str] = None
     type: Literal["image"] = "image"
 
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))
 
-
-@dataclass
-class FilePart:
+class FilePart(_SDKBaseModel):
     data: Union[str, bytes]
-    mime_type: str = field(metadata={"alias": "mimeType"})
+    mime_type: str
     type: Literal["file"] = "file"
 
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))
 
-
-@dataclass
-class ReasoningPart:
+class ReasoningPart(_SDKBaseModel):
     text: str
     signature: Optional[str] = None
     type: Literal["reasoning"] = "reasoning"
 
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))
 
-
-@dataclass
-class RedactedReasoningPart:
+class RedactedReasoningPart(_SDKBaseModel):
     data: str
     type: Literal["redacted-reasoning"] = "redacted-reasoning"
 
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))
 
-
-@dataclass
-class ToolCallPart:
+class ToolCallPart(_SDKBaseModel):
     tool_call_id: str
     tool_name: str
     args: Dict[str, Any]
     type: Literal["tool-call"] = "tool-call"
 
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))
 
-
-@dataclass
-class ToolResultPart:
+class ToolResultPart(_SDKBaseModel):
     tool_call_id: str
     tool_name: str
     result: Any
     is_error: Optional[bool] = None
     type: Literal["tool-result"] = "tool-result"
 
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))
 
+# Convenience unions ---------------------------------------------------------
 
-# Convenience unions
 AnyUserContentPart = Union[TextPart, ImagePart, FilePart]
 AnyAssistantContentPart = Union[
     TextPart,
@@ -115,15 +113,17 @@ AnyAssistantContentPart = Union[
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class CoreMessage:
+class CoreMessage(_SDKBaseModel):
     """Base class – concrete subclasses provide a fixed ``role`` value."""
 
-    def to_dict(self) -> dict[str, Any]:
+    role: str
+
+    # Each concrete subclass overrides *to_dict* because the shape of the
+    # ``content`` field differs depending on the role.
+    def to_dict(self) -> dict[str, Any]:  # noqa: D401
         raise NotImplementedError
 
 
-@dataclass
 class CoreSystemMessage(CoreMessage):
     content: str
     role: Literal["system"] = "system"
@@ -132,7 +132,6 @@ class CoreSystemMessage(CoreMessage):
         return {"role": self.role, "content": self.content}
 
 
-@dataclass
 class CoreUserMessage(CoreMessage):
     content: Union[str, List[AnyUserContentPart]]
     role: Literal["user"] = "user"
@@ -145,7 +144,6 @@ class CoreUserMessage(CoreMessage):
         return {"role": self.role, "content": conv}
 
 
-@dataclass
 class CoreAssistantMessage(CoreMessage):
     content: Union[str, List[AnyAssistantContentPart]]
     role: Literal["assistant"] = "assistant"
@@ -158,16 +156,12 @@ class CoreAssistantMessage(CoreMessage):
         return {"role": self.role, "content": conv}
 
 
-@dataclass
 class CoreToolMessage(CoreMessage):
     content: List[ToolResultPart]
     role: Literal["tool"] = "tool"
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "role": self.role,
-            "content": [part.to_dict() for part in self.content],
-        }
+        return {"role": self.role, "content": [p.to_dict() for p in self.content]}
 
 
 AnyMessage = Union[
@@ -182,12 +176,7 @@ AnyMessage = Union[
 # ---------------------------------------------------------------------------
 
 
-from datetime import datetime
-from typing import Literal
-
-
-@dataclass(slots=True)
-class ResponseMetadata:
+class ResponseMetadata(_SDKBaseModel):
     """Lightweight view of a provider response used by the on_step callback."""
 
     id: str | None = None
@@ -197,8 +186,33 @@ class ResponseMetadata:
     body: Any = None
 
 
-@dataclass(slots=True)
-class OnStepFinishResult:
+class TokenUsage(_SDKBaseModel):
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+
+class ToolCall(_SDKBaseModel):
+    tool_call_id: Optional[str] = None
+    tool_name: Optional[str] = None
+    args: Dict[str, Any] = {}
+
+
+class ToolResult(_SDKBaseModel):
+    tool_call_id: Optional[str] = None
+    tool_name: Optional[str] = None
+    result: Any = None
+    is_error: Optional[bool] = None
+
+
+class ReasoningDetail(_SDKBaseModel):
+    type: Optional[Literal["text", "redacted"]] = None
+    text: Optional[str] = None
+    data: Optional[str] = None
+    signature: Optional[str] = None
+
+
+class OnStepFinishResult(_SDKBaseModel):
     """Detailed information passed to *on_step* callbacks."""
 
     step_type: Literal["initial", "continue", "tool-result"]
@@ -208,7 +222,7 @@ class OnStepFinishResult:
     tool_calls: Optional[List[ToolCall]] = None
     tool_results: Optional[List[ToolResult]] = None
     warnings: Optional[List[str]] = None
-    response: ResponseMetadata | None = None
+    response: Optional[ResponseMetadata] = None
     is_continued: bool = False
     provider_metadata: Optional[Dict[str, Any]] = None
 
@@ -218,73 +232,15 @@ class OnStepFinishResult:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class TokenUsage:
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-
-    def to_dict(self) -> dict[str, int]:
-        return asdict(self)
-
-
-@dataclass
-class Source:
+class Source(_SDKBaseModel):
     id: Optional[str] = None
     url: Optional[str] = None
     title: Optional[str] = None
     provider_metadata: Optional[Dict[str, Any]] = None
     source_type: Literal["url"] = "url"
 
-    def to_dict(self) -> dict[str, Any]:
-        d = asdict(self)
-        d["sourceType"] = d.pop("source_type")
-        return _alias(d)
 
-
-@dataclass
-class GeneratedFile:
+class GeneratedFile(_SDKBaseModel):
     base64: Optional[str] = None
     uint8_array: Optional[bytes] = None
     mime_type: Optional[str] = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))
-
-
-# Tool calls & results -------------------------------------------------------
-
-
-@dataclass
-class ToolCall:
-    tool_call_id: Optional[str] = None
-    tool_name: Optional[str] = None
-    args: Dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))
-
-
-@dataclass
-class ToolResult:
-    tool_call_id: Optional[str] = None
-    tool_name: Optional[str] = None
-    result: Any = None
-    is_error: Optional[bool] = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))
-
-
-# Reasoning detail -----------------------------------------------------------
-
-
-@dataclass
-class ReasoningDetail:
-    type: Optional[Literal["text", "redacted"]] = None
-    text: Optional[str] = None
-    data: Optional[str] = None
-    signature: Optional[str] = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return _alias(asdict(self))

@@ -2,6 +2,7 @@ import asyncio
 import os
 
 import pytest
+from dotenv import load_dotenv
 
 from ai_sdk import generate_text, stream_text, openai
 from ai_sdk.types import (
@@ -9,6 +10,9 @@ from ai_sdk.types import (
     CoreUserMessage,
     TextPart,
 )
+
+load_dotenv()
+
 
 # Skip all tests if OPENAI_API_KEY is missing to avoid network failures in CI
 pytestmark = pytest.mark.skipif(
