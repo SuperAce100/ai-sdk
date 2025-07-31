@@ -168,6 +168,7 @@ def stream_object(
     system: str | None = None,
     messages: Optional[List[AnyMessage]] = None,
     on_chunk: Optional[Callable[[str], Any]] = None,
+    on_partial: Optional[Callable[[T], Any]] = None,
     **kwargs: Any,
 ) -> StreamObjectResult[T]:
     """Stream an object – returns deltas immediately while allowing callers to
@@ -195,6 +196,14 @@ def stream_object(
                 except Exception:  # noqa: BLE001
                     pass
             collected.append(delta)
+            current_text = "".join(collected)
+            if on_partial:
+                partial_obj = _parse_partial_to_schema(current_text, schema)
+                if partial_obj is not None:
+                    try:
+                        on_partial(partial_obj)
+                    except Exception:
+                        pass
             yield delta
 
     return StreamObjectResult(
@@ -245,6 +254,34 @@ def _extract_json_block(text: str) -> str:
             pass
 
     raise ValueError("Could not find a valid JSON object in model output.")
+
+
+def _parse_partial_to_schema(text: str, schema: Type[T]) -> Optional[T]:
+    """Return *schema* instance if possible, else None without raising.
+
+    This is lenient: missing required fields are ignored; only keys present in
+    the JSON blob are injected via ``model_construct`` (no validation)."""
+
+    try:
+        json_str = _extract_json_block(text)
+    except ValueError:
+        return None
+    try:
+        # Try full validation first – this succeeds once the object is complete.
+        return schema.model_validate_json(json_str)
+    except ValidationError:
+        pass  # fall through to lenient mode
+
+    try:
+        data = _json.loads(json_str)
+        if not isinstance(data, dict):
+            return None
+        filtered = {k: v for k, v in data.items() if k in schema.model_fields}
+        if not filtered:
+            return None
+        return schema.model_construct(**filtered)
+    except Exception:
+        return None
 
 
 def _parse_to_schema(text: str, schema: Type[T]) -> T:

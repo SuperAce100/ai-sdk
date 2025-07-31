@@ -134,11 +134,14 @@ async def demo_stream_object(model):
         'Respond with JSON like {"number": 42, "is_even": true, '
         '"factors": [1, 2, 3, 6, 7, 14, 21, 42], "description": "42 is an even number. Its factors are 1, 2, 3, 6, 7, 14, 21, and 42."} (no markdown).'
     )
-    result = stream_object(model=model, schema=RandomNumberDetails, prompt=prompt)
-    collected = []
+
+    def on_partial(obj):
+        print("Partial:", obj)
+
+    result = stream_object(model=model, schema=RandomNumberDetails, prompt=prompt, on_partial=on_partial)
     async for delta in result.object_stream:
-        print(delta, end="", flush=True)
-        collected.append(delta)
+        print(delta)
+
     obj = await result.object(RandomNumberDetails)
     print("\nObject:", obj)
 
