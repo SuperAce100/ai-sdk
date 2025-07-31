@@ -4,6 +4,7 @@ High-level helpers that mimic the Vercel AI SDK ``generateText`` and ``streamTex
 Only the subset required for a first Python port is implemented.  Additional
 flags and features will be added in the future.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -176,7 +177,7 @@ def generate_text(
     on_step: OnStepCallback | None = None,
     **kwargs: Any,
 ) -> GenerateTextResult:
-    '''Generate text in a single, non-streaming request.
+    """Generate text in a single, non-streaming request.
 
     This helper is synchronous and optionally supports iterative *tool
     calling* when ``tools`` are provided.
@@ -226,7 +227,7 @@ def generate_text(
     RuntimeError
         If ``max_steps`` is exceeded without the model returning a final
         answer (only applicable when tool calling is active).
-    '''
+    """
 
     # Fast-path – no tools provided → fall back to the original behaviour.
     if not tools:
@@ -333,7 +334,6 @@ def generate_text(
         # ------------------------------------------------------------------
         assistant_tool_calls = []
         for tc in result.tool_calls:
-
             assistant_tool_calls.append(
                 {
                     "id": tc.tool_call_id or "tool-call",
@@ -405,7 +405,6 @@ def generate_text(
 # ---------------------------------------------------------------------------
 
 
-
 ChunkCallback = Callable[[str], Awaitable[None] | None]
 ErrorCallback = Callable[[Exception], Awaitable[None] | None]
 FinishCallback = Callable[[str], Awaitable[None] | None]
@@ -426,7 +425,7 @@ def stream_text(
     # future args accepted via **kwargs for providerOptions etc.
     **kwargs: Any,
 ) -> StreamTextResult:
-    '''Asynchronously stream text from the language model.
+    """Asynchronously stream text from the language model.
 
     This helper returns a :class:`StreamTextResult` whose ``text_stream``
     attribute is an async iterator yielding text *deltas* as soon as they
@@ -457,7 +456,7 @@ def stream_text(
         Object containing the async ``text_stream`` as well as helpers
         like ``await result.text()`` and metadata fields (``finish_reason``,
         ``usage``, ``provider_metadata``).
-    '''
+    """
 
     # If tool calling is requested, we currently fall back to the *blocking*
     # implementation under the hood and expose the full text as a *single*
