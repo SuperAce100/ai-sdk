@@ -71,23 +71,27 @@ class Tool:  # noqa: D101 – simple value object
 def tool(
     *, name: str, description: str, parameters: Dict[str, Any], execute: HandlerFn
 ) -> "Tool":  # noqa: D401
-    """Factory that returns a :class:`Tool` instance.
+    '''Create a :class:`ai_sdk.tool.Tool` from a Python callable.
 
-    Example
+    Parameters
+    ----------
+    name:
+        Unique identifier that the model will use to reference the tool.
+    description:
+        Human-readable sentence describing the tool’s purpose.
+    parameters:
+        JSON-Schema describing the accepted arguments as required by the
+        OpenAI *function calling* specification.
+    execute:
+        Python callable implementing the tool logic.  Can be synchronous
+        or ``async``.
+
+    Returns
     -------
-    >>> def double(x: int) -> int:
-    ...     return x * 2
-    >>> double_tool = tool(
-    ...     name="double",
-    ...     description="Double an integer.",
-    ...     parameters={
-    ...         "type": "object",
-    ...         "properties": {"x": {"type": "integer"}},
-    ...         "required": ["x"],
-    ...     },
-    ...     execute=double,
-    ... )
-    """
+    Tool
+        Configured tool instance ready to be supplied via the *tools*
+        argument of :func:`ai_sdk.generate_text` / :func:`ai_sdk.stream_text`.
+    '''
 
     if not all([name, description, parameters, execute]):
         raise ValueError(

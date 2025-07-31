@@ -123,11 +123,34 @@ def generate_object(
     messages: Optional[List[AnyMessage]] = None,
     **kwargs: Any,
 ) -> GenerateObjectResult[T]:
-    """Synchronously generate an *object* that conforms to *schema*.
+    '''Generate an object that conforms to *schema* in a single request.
 
-    The call signature intentionally mirrors :func:`ai_sdk.generate_text` – the
-    caller can either provide a *prompt* or a pre-built *messages* array.
-    """
+    The helper instructs the language model to emit JSON and validates the
+    result against the supplied Pydantic *schema*.
+
+    Parameters
+    ----------
+    model:
+        Language model used for generation.
+    schema:
+        Pydantic :class:`pydantic.BaseModel` (or compatible) subclass that
+        defines the expected output format.
+    prompt, system, messages:
+        See :func:`ai_sdk.generate_text`.
+    **kwargs:
+        Forwarded to :pyfunc:`LanguageModel.generate_text`.
+
+    Returns
+    -------
+    GenerateObjectResult[`T`]
+        Wrapper exposing the parsed ``object`` as well as ``raw_text`` and
+        standard metadata fields.
+
+    Raises
+    ------
+    pydantic.ValidationError
+        If the model output cannot be parsed into *schema*.
+    '''
 
     serialised_messages: Optional[List[Dict[str, Any]]] = None
     if messages is not None:
@@ -172,9 +195,31 @@ def stream_object(
     on_partial: Optional[Callable[[T], Any]] = None,
     **kwargs: Any,
 ) -> StreamObjectResult[T]:
-    """Stream an object – returns deltas immediately while allowing callers to
-    await the fully-parsed object at the end.
-    """
+    '''Stream a structured object that conforms to *schema*.
+
+    The underlying model is streamed via
+    :pyfunc:`LanguageModel.stream_text`.  Partial deltas are forwarded
+    through *on_chunk* while the helper attempts to incrementally parse
+    the accumulated text, invoking *on_partial* whenever a valid partial
+    object can be produced.
+
+    Parameters
+    ----------
+    model, schema, prompt, system, messages:
+        Same as :func:`generate_object`.
+    on_chunk:
+        Callback receiving every raw text delta.
+    on_partial:
+        Callback receiving partial objects of type *T* that were
+        successfully parsed.
+    **kwargs:
+        Extra parameters forwarded to the provider.
+
+    Returns
+    -------
+    StreamObjectResult[`T`]
+        See class docs for the exposed helpers & metadata.
+    '''
 
     serialised_messages: Optional[List[Dict[str, Any]]] = None
     if messages is not None:

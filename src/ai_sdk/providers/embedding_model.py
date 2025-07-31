@@ -40,8 +40,29 @@ class EmbeddingModel(ABC):
     # ---------------------------------------------------------------------
     @abstractmethod
     def embed_many(self, values: List[Any], **kwargs: Any) -> Dict[str, Any]:  # noqa: D401
-        """Return embeddings for *values*.
+        """Embed *values* and return a provider-specific result dictionary.
 
-        Implementations **must** preserve the input order.
-        The return value has to contain at least an ``embeddings`` key.
+        Implementations **must** preserve the order of *values* – the *i*-th
+        embedding in the returned list **must** correspond to ``values[i]``.
+
+        Parameters
+        ----------
+        values:
+            List of items to embed.  Their type depends on the provider (most
+            commonly ``str`` for text models).
+        **kwargs:
+            Provider-specific keyword arguments (e.g. ``headers`` for custom HTTP
+            headers).  Concrete implementations should document supported keys.
+
+        Returns
+        -------
+        Dict[str, Any]
+            A mapping with at minimum the following keys:
+
+            ``embeddings`` : ``List[List[float]]``
+                Embedding vectors aligned with *values*.
+            ``usage`` : *Any*, optional
+                Provider-specific token usage / billing information.
+            ``raw_response`` : *Any*, optional
+                Original SDK / HTTP response object for advanced inspection.
         """

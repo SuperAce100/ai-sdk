@@ -191,6 +191,25 @@ class OpenAIEmbeddingModel(EmbeddingModel):
     # ------------------------------------------------------------------
 
     def embed_many(self, values: List[Any], **kwargs: Any) -> Dict[str, Any]:  # noqa: D401
+        """OpenAI-specific implementation of :pyfunc:`EmbeddingModel.embed_many`.
+
+        Parameters
+        ----------
+        values:
+            List of values to embed.  The OpenAI embeddings endpoint expects a
+            list of **strings** where each string represents a separate input
+            (maximum length subject to the underlying model).
+        **kwargs:
+            Additional arguments forwarded to :pyfunc:`openai.resources.embeddings.Embeddings.create`.
+            This can include e.g. ``user`` for request tracking or ``encoding_format``.
+
+        Returns
+        -------
+        dict
+            Mapping containing at least the keys ``values`` and ``embeddings`` as
+            described by the parent class.  A flattened ``usage`` dict is
+            included if the OpenAI response exposes a ``usage`` field.
+        """
         if not values:
             raise ValueError("values must contain at least one item.")
 
@@ -278,14 +297,31 @@ def _build_chat_messages(
 def openai(
     model: str, *, api_key: Optional[str] = None, **default_kwargs: Any
 ) -> OpenAIModel:  # noqa: N802
-    """Factory helper that returns an :class:`OpenAIModel` instance.
+    '''Return a configured :class:`OpenAIModel` instance.
+
+    Parameters
+    ----------
+    model:
+        Identifier of the OpenAI chat model (e.g. "gpt-4o-mini").
+    api_key:
+        API key used for authentication.  If *None*, the OpenAI client
+        falls back to the ``OPENAI_API_KEY`` environment variable.
+    **default_kwargs:
+        Keyword arguments that will be attached to every subsequent
+        request (for example ``temperature`` or ``user``).  They can still
+        be overridden per-call.
+
+    Returns
+    -------
+    OpenAIModel
+        Model instance ready for use with the SDK helpers.
 
     Example
     -------
-    >>> from ai_sdk import generate_text, openai
+    >>> from ai_sdk import openai, generate_text
     >>> model = openai("gpt-4o-mini")
-    >>> result = await generate_text(model=model, prompt="Hello!")
-    """
+    >>> res = await generate_text(model=model, prompt="Hello!")
+    '''
     return OpenAIModel(model, api_key=api_key, **default_kwargs)
 
 

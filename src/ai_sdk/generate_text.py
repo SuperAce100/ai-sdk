@@ -176,25 +176,57 @@ def generate_text(
     on_step: OnStepCallback | None = None,
     **kwargs: Any,
 ) -> GenerateTextResult:
-    """Generate *non-streaming* text via the given model – **with optional
-    iterative tool calling support**.
+    '''Generate text in a single, non-streaming request.
+
+    This helper is synchronous and optionally supports iterative *tool
+    calling* when ``tools`` are provided.
 
     Parameters
     ----------
     model:
-        :class:`~ai_sdk.providers.LanguageModel` instance.
+        Instance of :class:`ai_sdk.providers.language_model.LanguageModel`
+        that will be queried.
+    prompt:
+        User prompt (ignored when ``messages`` is supplied).
+    system:
+        Optional system prompt prepended to the conversation.
+    messages:
+        List of :class:`ai_sdk.types.AnyMessage` objects representing the
+        conversation so far.
     tools:
-        A list of :class:`~ai_sdk.tool.Tool` instances.  If *None* or empty,
-        the function behaves exactly like the original implementation without
-        tool support.
+        Sequence of :class:`ai_sdk.tool.Tool` instances that can be invoked
+        by the model.  Leave empty to disable tool calling.
     max_steps:
-        Maximum number of *model ↔ tool* iterations before aborting.
+        Maximum number of model ↔ tool iterations before aborting (only
+        relevant when ``tools`` are supplied).
     on_step:
-        Optional callback invoked after every model response (including the
-        final one).  Receives the *current step index* (starting at ``0``) as
-        first argument and the :class:`GenerateTextResult` for that step as
-        second argument.
-    """
+        Optional callback executed after every model response (including the
+        final one).  Receives ``(step_index, GenerateTextResult)``.
+    **kwargs:
+        Additional keyword arguments forwarded verbatim to
+        :pyfunc:`LanguageModel.generate_text`.
+
+    Returns
+    -------
+    GenerateTextResult
+        Dataclass with the following attributes:
+
+        * ``text`` – final model output.
+        * ``finish_reason`` – why the model stopped.
+        * ``usage`` – provider-reported token usage (may be *None*).
+        * ``tool_calls`` / ``tool_results`` – populated when tool calling
+          was used.
+        * ``provider_metadata`` / ``raw_response`` – provider specific
+          information for advanced inspection.
+
+    Raises
+    ------
+    ValueError
+        If both ``prompt`` and ``messages`` are *None*.
+    RuntimeError
+        If ``max_steps`` is exceeded without the model returning a final
+        answer (only applicable when tool calling is active).
+    '''
 
     # Fast-path – no tools provided → fall back to the original behaviour.
     if not tools:
@@ -394,12 +426,38 @@ def stream_text(
     # future args accepted via **kwargs for providerOptions etc.
     **kwargs: Any,
 ) -> StreamTextResult:
-    """Stream text from the language model.
+    '''Asynchronously stream text from the language model.
 
-    The return value is *not* awaited – streaming starts immediately.  To obtain
-    the final text you can either iterate over ``result.text_stream`` or
-    ``await result.text()``.
-    """
+    This helper returns a :class:`StreamTextResult` whose ``text_stream``
+    attribute is an async iterator yielding text *deltas* as soon as they
+    arrive from the provider.
+
+    Parameters
+    ----------
+    model, prompt, system, messages:
+        Same as :func:`generate_text`.
+    tools, max_steps, on_step:
+        Identical semantics to :func:`generate_text`.  When *tools* are
+        supplied, streaming falls back to :func:`generate_text` internally
+        and emits the final answer as a single chunk.
+    on_chunk:
+        Callback executed for every delta chunk.
+    on_error:
+        Callback executed if an exception happens while streaming.
+    on_finish:
+        Callback executed once the stream completes. Receives the full
+        text as its single argument.
+    **kwargs:
+        Additional arguments forwarded to
+        :pyfunc:`LanguageModel.stream_text`.
+
+    Returns
+    -------
+    StreamTextResult
+        Object containing the async ``text_stream`` as well as helpers
+        like ``await result.text()`` and metadata fields (``finish_reason``,
+        ``usage``, ``provider_metadata``).
+    '''
 
     # If tool calling is requested, we currently fall back to the *blocking*
     # implementation under the hood and expose the full text as a *single*

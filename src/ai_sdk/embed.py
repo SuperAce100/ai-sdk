@@ -60,12 +60,24 @@ class EmbedResult:
 
 
 def cosine_similarity(vec_a: Sequence[float], vec_b: Sequence[float]) -> float:  # noqa: D401
-    """Return the cosine similarity between *vec_a* and *vec_b*.
+    """Return the *cosine similarity* between two vectors.
+
+    Parameters
+    ----------
+    vec_a, vec_b:
+        Numeric sequences (e.g. ``list`` or ``numpy.ndarray``) of equal length.
+
+    Returns
+    -------
+    float
+        Cosine similarity in the range ``[-1.0, 1.0]`` where ``1.0`` means the
+        vectors point in the same direction and ``0.0`` indicates orthogonality.
 
     Raises
     ------
     ValueError
-        If the vectors have different lengths or zero magnitude.
+        If the vectors have different lengths or at least one vector is the
+        all-zero vector (magnitude ``0``).
     """
 
     if len(vec_a) != len(vec_b):
@@ -93,10 +105,43 @@ def embed_many(
     max_retries: int = 2,
     **kwargs: Any,
 ) -> EmbedManyResult:  # noqa: D401 – maintain parity with TS naming
-    """Embed *values* using the given *model*.
+    """Embed a sequence of *values* using the given embedding *model*.
 
+    Parameters
+    ----------
+    model:
+        Instance of :class:`ai_sdk.providers.embedding_model.EmbeddingModel` that
+        will be used to embed the input values.
+    values:
+        Iterable of items to embed.  The element type depends on the concrete
+        model – most text models expect ``str`` but multimodal models may also
+        accept images, audio, …
+    max_retries:
+        Maximum number of times to retry a failed provider request before giving
+        up (defaults to ``2``).  Set to ``0`` to disable retries entirely.
+    **kwargs:
+        Passed verbatim to the provider's :pyfunc:`EmbeddingModel.embed_many`
+        implementation to expose provider-specific features (e.g. ``headers``).
+
+    Returns
+    -------
+    EmbedManyResult
+        Lightweight dataclass with the following attributes:
+
+        * ``values`` – original values in the same order as passed in.
+        * ``embeddings`` – list of embedding vectors (``List[List[float]]``)
+          aligned with ``values``.
+        * ``usage`` – optional :class:`EmbeddingTokenUsage` holding total token
+          count if the provider reports usage.
+        * ``provider_metadata`` – provider-specific response metadata (may be
+          ``None``).
+        * ``raw_response`` – raw provider response object(s) for advanced
+          inspection (may be ``None``).
+
+    Notes
+    -----
     The helper automatically splits *values* into multiple batches if the
-    provider exposes a ``max_batch_size`` limit.
+    provider exposes a ``max_batch_size`` attribute.
     """
 
     if not values:
@@ -158,7 +203,28 @@ def embed(
     value: Any,
     **kwargs: Any,
 ) -> EmbedResult:  # noqa: D401 – maintain parity with TS naming
-    """Embed a *single* value – thin wrapper around :func:`embed_many`."""
+    """Embed a *single* value using the given embedding *model*.
+
+    This is a convenience wrapper around :func:`embed_many` that returns the
+    first (and only) embedding in a dedicated :class:`EmbedResult` container.
+
+    Parameters
+    ----------
+    model:
+        Instance of :class:`ai_sdk.providers.embedding_model.EmbeddingModel`.
+    value:
+        The value to embed (commonly a ``str``).  The expected type depends on
+        the provider.
+    **kwargs:
+        Additional keyword arguments forwarded to :func:`embed_many`.
+
+    Returns
+    -------
+    EmbedResult
+        Dataclass containing the original *value*, its *embedding* (vector of
+        floats), optional *usage* information and the *raw_response* object from
+        the provider.
+    """
 
     res_many = embed_many(model=model, values=[value], **kwargs)
     return EmbedResult(
