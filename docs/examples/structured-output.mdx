@@ -1,0 +1,52 @@
+---
+title: "Structured output example"
+description: "Ask the model to return JSON validated against a Pydantic schema."
+icon: "brackets-curly"
+---
+
+import { Steps, Step, CodeGroup, Check, Warning } from "mintlify/components";
+
+<Steps>
+<Step title="Define the schema">
+
+```python
+from pydantic import BaseModel
+
+class Weather(BaseModel):
+    location: str
+    temperature_c: float
+    condition: str
+```
+
+</Step>
+
+<Step title="Call generate_object">
+
+<CodeGroup>
+```python weather.py
+from ai_sdk import openai, generate_object
+
+model = openai("gpt-4o-mini", temperature=0)
+
+res = generate_object(
+model=model,
+schema=Weather,
+prompt="Return the current weather in Berlin as JSON (no extra text).",
+)
+print(res.object)
+
+````
+</CodeGroup>
+</Step>
+</Steps>
+
+Expected output (Pydantic instance):
+
+```python
+Weather(location='Berlin', temperature_c=18.3, condition='Sunny')
+````
+
+<Warning>
+  If the model sends invalid JSON, the helper retries parsing *and* raises a clear exception if
+  validation ultimately fails.
+</Warning>

@@ -1,0 +1,72 @@
+---
+title: "Concepts & architecture"
+description: "Understand the design goals and internal building blocks of ai_sdk."
+icon: "layer-group"
+---
+
+import { Note, Tip, Warning, CodeGroup, Steps, Step } from "mintlify/components";
+
+## Mission
+
+`ai_sdk` aims to **minimise boilerplate** when working with modern LLMs while staying _provider-agnostic_ and fully **typed**.
+
+1. One-line helpers (`generate_text`, `embed_many`, …) do 90 % of common work.
+2. Abstract base classes (`LanguageModel`, `EmbeddingModel`) keep providers pluggable.
+3. Pydantic models enforce type-safety for structured output & internal messages.
+4. Everything is sync-first for notebooks/scripts but exposes async streaming where it matters.
+
+## High-level flow
+
+<Steps>
+<Step title="Factory helper returns a provider wrapper">
+
+```python
+model = openai("gpt-4o-mini")
+```
+
+</Step>
+<Step title="Helper builds a provider-agnostic request">
+
+The SDK translates <code>prompt/system/messages/tools</code> into the provider’s native schema.
+
+</Step>
+<Step title="Provider SDK call & response normalisation">
+
+Each provider implementation maps the raw response back into a lightweight dict containing
+`text`, `finish_reason`, `usage`, `raw_response`, …
+
+</Step>
+<Step title="Result objects give you typed access">
+
+```python
+GenerateTextResult
+├─ text: str
+├─ usage: TokenUsage
+└─ tool_calls / tool_results (optional)
+```
+
+</Step>
+</Steps>
+
+## Where does retry logic live?
+
+- **Embeddings** – batching & retries happen in the _helper_ (`embed_many`).
+- **Text generation** – delegate retries to the provider’s SDK since most include back-off handlers.
+
+## Extending the SDK
+
+1. Implement `LanguageModel` or `EmbeddingModel`.
+2. Expose a public factory (e.g. `mycloud(model="x")`).
+3. Users instantly get the full helper surface – no changes elsewhere.
+
+<Tip>
+Keeping the abstraction layer razor-thin (<100 LOC per provider) makes it easy for the community to add new backends.
+</Tip>
+
+## Roadmap
+
+- Built-in vector-store utilities
+- Native image generation helpers
+- Automatic schema extraction for `generate_object`
+
+<Note>Open to contributions! Check the GitHub issues for “good first issue” labels.</Note>

@@ -1,0 +1,60 @@
+---
+title: "Tool-calling agent loop"
+description: "Let the model call real Python functions to answer user queries."
+icon: "terminal"
+---
+
+import { Steps, Step, CodeGroup, Tip } from "mintlify/components";
+
+This example shows a minimal agent that can **add** two numbers using a Python tool.
+
+<Steps>
+<Step title="Define the tool">
+
+```python
+from ai_sdk import tool
+
+add = tool(
+    name="add",
+    description="Add two numbers and return the sum.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "a": {"type": "integer"},
+            "b": {"type": "integer"},
+        },
+        "required": ["a", "b"],
+    },
+    execute=lambda a, b: a + b,
+)
+```
+
+</Step>
+
+<Step title="Interact with the agent">
+
+<CodeGroup>
+```python agent.py
+from ai_sdk import openai, generate_text
+from tools import add  # assume above code lives in tools.py
+
+model = openai("gpt-4o-mini", temperature=0)
+
+res = generate_text(
+model=model,
+prompt="What is 21 + 21?",
+tools=[add],
+)
+print(res.text) # "The result is 42."
+print(res.tool_calls) # introspection
+print(res.tool_results)
+
+```
+</CodeGroup>
+</Step>
+</Steps>
+
+<Tip>
+The SDK automatically loops until the model stops requesting tools (max 8 iterations by default). Each tool result is appended as a **tool message** so the model can reference previous calls.
+</Tip>
+```

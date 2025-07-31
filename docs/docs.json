@@ -11,61 +11,47 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Overview",
         "groups": [
           {
-            "group": "Getting started",
-            "pages": ["index", "quickstart", "development"]
+            "group": "Introduction",
+            "pages": ["ai-sdk/introduction", "ai-sdk/concepts"]
           },
           {
-            "group": "Customization",
-            "pages": ["essentials/settings", "essentials/navigation"]
-          },
-          {
-            "group": "Writing content",
+            "group": "Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": ["ai-tools/cursor", "ai-tools/claude-code", "ai-tools/windsurf"]
-          },
-          {
-            "group": "Python AI SDK",
-            "pages": [
-              "ai-sdk/introduction",
-              "ai-sdk/text-generation",
-              "ai-sdk/object-generation",
-              "ai-sdk/embeddings",
-              "ai-sdk/tool-calling",
-              "ai-sdk/providers",
-              "ai-sdk/types"
+              "examples/basic-text",
+              "examples/streaming",
+              "examples/structured-output",
+              "examples/tool-agent",
+              "examples/embeddings-search"
             ]
           }
+        ]
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Reference",
         "groups": [
           {
-            "group": "API documentation",
-            "pages": ["api-reference/introduction"]
+            "group": "Functions",
+            "pages": [
+              "ai-sdk/text-generation",
+              "ai-sdk/object-generation",
+              "ai-sdk/embeddings",
+              "ai-sdk/tool-calling"
+            ]
           },
           {
-            "group": "Endpoint examples",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
-            ]
+            "group": "Providers",
+            "pages": ["ai-sdk/providers"]
+          },
+          {
+            "group": "Types",
+            "pages": ["ai-sdk/types"]
           }
         ]
-      }
+      },
     ],
     "global": {
       "anchors": [

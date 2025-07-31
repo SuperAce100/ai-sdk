@@ -1,0 +1,52 @@
+---
+title: "Embeddings similarity search"
+description: "Embed a corpus and find the most similar sentence via cosine similarity."
+icon: "magnifying-glass"
+---
+
+import { CodeGroup, Note, Steps, Step } from "mintlify/components";
+
+<Steps>
+<Step title="Embed your corpus">
+
+<CodeGroup>
+```python search.py
+from ai_sdk import openai, embed_many, cosine_similarity
+
+sentences = [
+"The cat sat on the mat.",
+"A dog was lying on the rug.",
+"Paris is the capital of France.",
+"Cats love sunny spots.",
+]
+model = openai.embedding("text-embedding-3-small")
+res = embed_many(model=model, values=sentences)
+
+````
+</CodeGroup>
+</Step>
+
+<Step title="Search for a query">
+
+```python
+query = "Dogs enjoy napping on carpets."
+q_emb = embed_many(model=model, values=[query]).embeddings[0]
+
+scores = [cosine_similarity(q_emb, emb) for emb in res.embeddings]
+most_similar_idx = max(range(len(scores)), key=scores.__getitem__)
+print("Most similar: ", sentences[most_similar_idx])
+````
+
+Expected result:
+
+```text
+Most similar:  A dog was lying on the rug.
+```
+
+</Step>
+</Steps>
+
+<Note>
+  `cosine_similarity` is dependency-free. Replace it with NumPy or faiss in production for better
+  performance.
+</Note>

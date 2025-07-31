@@ -1,0 +1,62 @@
+---
+title: "Basic text generation"
+description: "Your first ai_sdk call – generate a greeting with one function."
+icon: "rocket"
+---
+
+import { Steps, Step, CodeGroup, Check, Note } from "mintlify/components";
+
+<Note>
+  This is the **hello-world** of ai_sdk. You only need two imports: the *provider factory* and the
+  `generate_text` helper.
+</Note>
+
+<Steps>
+<Step title="Install dependencies">
+
+```bash
+pip install ai-sdk openai
+```
+
+<Check>Make sure the environment variable <code>OPENAI_API_KEY</code> is set.</Check>
+</Step>
+
+<Step title="Create a model instance & generate text">
+
+<CodeGroup>
+```python hello.py
+from ai_sdk import openai, generate_text
+
+# 1. Re-use the model across calls
+
+model = openai("gpt-4o-mini")
+
+# 2. Generate a friendly greeting
+
+res = generate_text(model=model, prompt="Say hi to the world in one sentence")
+print(res.text)
+
+````
+</CodeGroup>
+
+Expected output (your wording may vary):
+
+```text
+Hello, world – great to see you!
+````
+
+</Step>
+</Steps>
+
+## What just happened?
+
+1. `openai()` returns a **LanguageModel** wrapper that talks to the OpenAI Chat Completions API.
+2. `generate_text()` sends the prompt, waits for the response, and returns a typed
+   `GenerateTextResult`.
+
+```python
+print(res.finish_reason)  # "stop"
+print(res.usage)         # TokenUsage(prompt_tokens=7, completion_tokens=9, ...)
+```
+
+That’s it – no async boilerplate, no JSON parsing, no provider-locked SDK calls.

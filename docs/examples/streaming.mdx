@@ -1,0 +1,57 @@
+---
+title: "Streaming responses"
+description: "Display tokens as they arrive using stream_text."
+icon: "waveform"
+---
+
+import { Steps, Step, CodeGroup, Tip } from "mintlify/components";
+
+Need ultra-low latency output? Use **`stream_text`** – an <code>async</code> iterator that yields
+text deltas in real time.
+
+<Steps>
+<Step title="Prepare the script">
+
+<CodeGroup>
+```python stream.py
+import asyncio
+from ai_sdk import openai, stream_text
+
+model = openai("gpt-4o-mini")
+
+async def main():
+result = stream_text(
+model=model,
+prompt="Write a short poem about the sea where each line rhymes.",
+on_chunk=lambda d: print(d, end="", flush=True),
+)
+
+    # Alternatively await the full text:
+    full = await result.text()
+    print("\n---\nFull text:")
+    print(full)
+
+asyncio.run(main())
+
+````
+</CodeGroup>
+</Step>
+
+<Step title="Run it">
+
+```bash
+python stream.py
+````
+
+You’ll see tokens appear _immediately_ instead of buffering the full response.
+
+</Step>
+</Steps>
+
+<Tip>
+`stream_text` accepts the same arguments as `generate_text` plus optional callbacks:
+
+- `on_chunk(delta)` – each text delta
+- `on_error(exc)` – exceptions while streaming
+- `on_finish(full_text)` – once complete
+  </Tip>
