@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, Dict, Any
 
+from pydantic import BaseModel
+
 
 class LanguageModel(ABC):
     """Abstract base class for all language model providers.
@@ -41,3 +43,26 @@ class LanguageModel(ABC):
         **kwargs: Any,
     ) -> AsyncIterator[str]:
         """Yield text deltas as they are produced by the model."""
+
+    # ------------------------------------------------------------------
+    # NEW: Native structured output helper
+    # ------------------------------------------------------------------
+
+    def generate_object(
+        self,
+        *,
+        schema: type[BaseModel],
+        prompt: str | None = None,
+        system: str | None = None,
+        messages: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Return structured output parsed into *schema*.
+
+        The concrete implementation should leverage the provider's native
+        structured output capabilities (if any) and **must** return at least an
+        ``object`` key holding the parsed ``schema`` instance.  Additional
+        provider-specific fields like ``usage`` or ``raw_response`` can be
+        included as desired.
+        """
+        raise NotImplementedError

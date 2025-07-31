@@ -41,7 +41,7 @@ async def test_generate_text_with_messages():
         CoreSystemMessage(content="You are a polite assistant."),
         CoreUserMessage(content=[TextPart(text="Say the word 'yes'.")]),
     ]
-    res = generate_text(model=model, messages=messages)
+    res = generate_text(model=model, messages=messages, temperature=0)
     assert "yes" in res.text.lower()
 
 

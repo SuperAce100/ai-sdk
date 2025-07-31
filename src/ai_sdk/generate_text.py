@@ -385,12 +385,20 @@ def generate_text(
 
             aggregated_tool_results.append(tool_result)
 
+            # Append the tool result as a CoreToolMessage to keep internal consistency
+            from ai_sdk.types import CoreToolMessage, ToolResultPart  # type: ignore
+
             conversation.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tool_result.tool_call_id,
-                    "content": _json.dumps(tool_result.result, default=str),
-                }
+                CoreToolMessage(
+                    content=[
+                        ToolResultPart(
+                            tool_call_id=tool_result.tool_call_id or "tool-call",
+                            tool_name=tool_result.tool_name or "tool",
+                            result=_json.dumps(tool_result.result, default=str),
+                            is_error=tool_result.is_error,
+                        )
+                    ]
+                )
             )
 
         # Callback for the *tool-result* step.

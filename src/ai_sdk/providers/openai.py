@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, AsyncIterator, Dict, List, Optional
+from pydantic import BaseModel
 
 import openai as _openai
 
@@ -91,6 +92,55 @@ class OpenAIModel(LanguageModel):
             "usage": resp.usage.model_dump() if hasattr(resp, "usage") else None,
             "raw_response": resp,
             "tool_calls": tool_calls or None,
+        }
+
+    # ------------------------------------------------------------------
+    # Native structured output helper – leverages OpenAI's parse() capability
+    # ------------------------------------------------------------------
+    def generate_object(
+        self,
+        *,
+        schema: type[BaseModel],
+        prompt: str | None = None,
+        system: str | None = None,
+        messages: Optional[List[Dict[str, Any]]] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Return a structured object parsed directly by the OpenAI SDK.
+
+        This relies on the experimental ``chat.completions.parse`` helper that
+        accepts a Pydantic *schema* and returns the parsed instance on the
+        ``message.parsed`` attribute of the first choice.
+        """
+
+        if prompt is None and not messages:
+            raise ValueError("Either 'prompt' or 'messages' must be provided.")
+
+        chat_messages = _build_chat_messages(
+            prompt=prompt, system=system, messages=messages
+        )
+        request_kwargs: Dict[str, Any] = {**self._default_kwargs, **kwargs}
+
+        # Call the *parse* helper which validates + coerces the response.
+        resp = self._client.chat.completions.parse(
+            model=self._model,
+            messages=chat_messages,
+            response_format=schema,
+            **request_kwargs,
+        )
+
+        choice = resp.choices[0]
+        parsed_obj = choice.message.parsed  # type: ignore[attr-defined]
+        finish_reason = choice.finish_reason or "unknown"
+
+        raw_text = getattr(choice.message, "content", "") or ""
+
+        return {
+            "object": parsed_obj,
+            "finish_reason": finish_reason,
+            "usage": resp.usage.model_dump() if hasattr(resp, "usage") else None,
+            "raw_response": resp,
+            "raw_text": raw_text,
         }
 
     def stream_text(
@@ -271,13 +321,47 @@ def _build_chat_messages(
     messages: Optional[List[Dict[str, Any]]],
 ) -> List[Dict[str, Any]]:
     """Translate the SDK's high-level arguments into OpenAI chat messages."""
+    # Helper – convert custom Core*Message objects or raw dicts into the
+    # canonical OpenAI chat message structure.
+    import json as _json
+
     if messages is not None:
-        # If explicit messages are provided, optionally prepend the system
-        # message.
         chat_messages: List[Dict[str, Any]] = []
         if system:
             chat_messages.append({"role": "system", "content": system})
-        chat_messages.extend(messages)
+
+        for msg in messages:
+            # Allow both SDK CoreMessage objects *and* plain dictionaries.
+            if hasattr(msg, "to_dict"):
+                msg_dict = msg.to_dict()  # type: ignore[attr-defined]
+            else:
+                msg_dict = msg  # type: ignore[assignment]
+
+            # Special-case *tool* messages which need flattening for OpenAI.
+            if msg_dict.get("role") == "tool":
+                content = msg_dict.get("content", [])
+                # The SDK wraps tool results in a single-item list.
+                if isinstance(content, list) and content:
+                    first = content[0]
+                    if isinstance(first, dict):
+                        tool_call_id = first.get("toolCallId") or first.get(
+                            "tool_call_id", "tool-call"
+                        )
+                        result_str = first.get("result")
+                        # Ensure the result is a *string* per OpenAI spec.
+                        if not isinstance(result_str, str):
+                            result_str = _json.dumps(result_str, default=str)
+                        chat_messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call_id,
+                                "content": result_str,
+                            }
+                        )
+                        continue  # done – skip default append below
+            # Default – append as-is (already in correct shape)
+            chat_messages.append(msg_dict)  # type: ignore[arg-type]
+
         return chat_messages
 
     # Fallback: emulate the *prompt* + optional system prompt API.
@@ -297,7 +381,7 @@ def _build_chat_messages(
 def openai(
     model: str, *, api_key: Optional[str] = None, **default_kwargs: Any
 ) -> OpenAIModel:  # noqa: N802
-    '''Return a configured :class:`OpenAIModel` instance.
+    """Return a configured :class:`OpenAIModel` instance.
 
     Parameters
     ----------
@@ -321,7 +405,7 @@ def openai(
     >>> from ai_sdk import openai, generate_text
     >>> model = openai("gpt-4o-mini")
     >>> res = await generate_text(model=model, prompt="Hello!")
-    '''
+    """
     return OpenAIModel(model, api_key=api_key, **default_kwargs)
 
 
@@ -338,6 +422,7 @@ def embedding(  # noqa: N802 – mimic TypeScript helper naming
     """
 
     return OpenAIEmbeddingModel(model, api_key=api_key, **default_kwargs)
+
 
 # ---------------------------------------------------------
 # Attach helper as attribute to the *openai* factory function

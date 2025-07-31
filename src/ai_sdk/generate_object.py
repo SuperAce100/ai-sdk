@@ -11,14 +11,24 @@ Implementation strategy – provider-agnostic:
 """
 
 from __future__ import annotations
-from typing import Any, AsyncIterator, Dict, Generic, List, Optional, Type, TypeVar, Callable
+from typing import (
+    Any,
+    AsyncIterator,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Callable,
+)
 import json as _json
 import re
 
 from pydantic import BaseModel, ValidationError
 
 from .providers.language_model import LanguageModel
-from .types import TokenUsage, AnyMessage 
+from .types import TokenUsage, AnyMessage
 
 
 # ---------------------------------------------------------------------------
@@ -26,6 +36,25 @@ from .types import TokenUsage, AnyMessage
 # ---------------------------------------------------------------------------
 
 T = TypeVar("T", bound=BaseModel)
+
+
+def _build_schema_instruction(schema: Type[BaseModel]) -> str:
+    """Return a terse system prompt guiding the model to emit the required JSON."""
+
+    def _simplify(ann: Any) -> str:  # noqa: ANN401 – generic typing here
+        if hasattr(ann, "__name__"):
+            return ann.__name__
+        return str(ann)
+
+    field_parts = [
+        f"'{name}': {_simplify(field.annotation)}"
+        for name, field in schema.model_fields.items()
+    ]
+    joined = ", ".join(field_parts)
+    return (
+        "You are a JSON generator. Respond ONLY with valid JSON that exactly matches "
+        f"this schema: {{ {joined} }}. Do not add any additional keys or explanatory text."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +152,7 @@ def generate_object(
     messages: Optional[List[AnyMessage]] = None,
     **kwargs: Any,
 ) -> GenerateObjectResult[T]:
-    '''Generate an object that conforms to *schema* in a single request.
+    """Generate an object that conforms to *schema* in a single request.
 
     The helper instructs the language model to emit JSON and validates the
     result against the supplied Pydantic *schema*.
@@ -150,21 +179,58 @@ def generate_object(
     ------
     pydantic.ValidationError
         If the model output cannot be parsed into *schema*.
-    '''
+    """
 
     serialised_messages: Optional[List[Dict[str, Any]]] = None
     if messages is not None:
         serialised_messages = [m.to_dict() for m in messages]  # type: ignore[attr-defined]
 
-    raw = model.generate_text(
-        prompt=prompt,
-        system=system,
-        messages=serialised_messages,
-        **kwargs,
-    )
+    # ------------------------------------------------------------------
+    # 1) Prefer provider-native structured outputs if available.
+    #    Fallback to the JSON-parsing approach for providers that do not yet
+    #    implement *generate_object* (or if something goes wrong).
+    # ------------------------------------------------------------------
 
-    text = raw.get("text", "")
-    obj = _parse_to_schema(text, schema)
+    try:
+        raw = model.generate_object(  # type: ignore[attr-defined]
+            schema=schema,
+            prompt=prompt,
+            system=system,
+            messages=serialised_messages,
+            **kwargs,
+        )
+        obj = raw.get("object")  # type: ignore[assignment]
+        if obj is None:
+            raise ValueError("Provider did not return 'object' key.")
+        text = raw.get("raw_text", "")
+    except Exception:
+        # ------------------------------------------------------------------
+        # Fallback: rely on text generation + manual JSON parsing.
+        # Inject a concise system prompt snippet describing the expected schema.
+        # ------------------------------------------------------------------
+        schema_instruction = _build_schema_instruction(schema)
+
+        if serialised_messages is not None:
+            # Prepend as an additional system message.
+            serialised_messages = [
+                {"role": "system", "content": schema_instruction}
+            ] + serialised_messages
+            augmented_system = None
+        else:
+            # Use the *system* field – prepend our instruction.
+            if system:
+                augmented_system = f"{schema_instruction}\n{system}"
+            else:
+                augmented_system = schema_instruction
+
+        raw = model.generate_text(
+            prompt=prompt,
+            system=augmented_system if "augmented_system" in locals() else None,
+            messages=serialised_messages,
+            **kwargs,
+        )
+        text = raw.get("text", "")
+        obj = _parse_to_schema(text, schema)
 
     usage = None
     if raw.get("usage"):
@@ -195,7 +261,7 @@ def stream_object(
     on_partial: Optional[Callable[[T], Any]] = None,
     **kwargs: Any,
 ) -> StreamObjectResult[T]:
-    '''Stream a structured object that conforms to *schema*.
+    """Stream a structured object that conforms to *schema*.
 
     The underlying model is streamed via
     :pyfunc:`LanguageModel.stream_text`.  Partial deltas are forwarded
@@ -219,7 +285,7 @@ def stream_object(
     -------
     StreamObjectResult[`T`]
         See class docs for the exposed helpers & metadata.
-    '''
+    """
 
     serialised_messages: Optional[List[Dict[str, Any]]] = None
     if messages is not None:
@@ -337,4 +403,6 @@ def _parse_to_schema(text: str, schema: Type[T]) -> T:
     try:
         return schema.model_validate_json(json_str)
     except ValidationError as exc:
-        raise ValueError("Model output does not conform to the expected schema") from exc
+        raise ValueError(
+            "Model output does not conform to the expected schema"
+        ) from exc
