@@ -1,0 +1,93 @@
+---
+title: "Structured output (generate_object)"
+description: "Parse model output directly into your own Pydantic models – goodbye fragile JSON regex!"
+icon: "boxes-packing"
+---
+
+import { Note, Tip, Warning, CodeGroup, Steps, Step } from "mintlify/components";
+
+## Why structured output?
+
+LLMs love to hallucinate – a missing comma can break your JSON parser.
+`generate_object` solves this by **validating** the response against a Pydantic schema and retries when needed.
+
+---
+
+## Quick example
+
+<CodeGroup>
+```python Return a Todo object
+from ai_sdk import generate_object, openai
+from pydantic import BaseModel
+
+class Todo(BaseModel):
+id: int
+title: str
+done: bool = False
+
+model = openai("gpt-4o-mini", temperature=0)
+
+res = generate_object(
+model=model,
+schema=Todo,
+prompt="Create a TODO item for buying milk. Return ONLY the JSON object.",
+)
+print(res.object) # Todo(id=1, title='Buy milk', done=False)
+print(res.raw_text) # original text (for debugging)
+
+````
+</CodeGroup>
+
+### Parameters
+
+Same as `generate_text` **plus**:
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `schema` | `Type[BaseModel]` | ✓ | Pydantic model defining the desired output shape. |
+
+`GenerateObjectResult` exposes `object`, `raw_text` and the usual metadata (`usage`, `provider_metadata` …).
+
+---
+
+## Streaming structured output
+
+Need real-time updates *and* validation? Use `stream_object`:
+
+<Steps>
+<Step title="Kick off the stream">
+
+```python
+from ai_sdk import stream_object, openai
+
+class Weather(BaseModel):
+    location: str
+    temperature_c: float
+
+result = stream_object(
+    model=openai("gpt-4o-mini"),
+    schema=Weather,
+    prompt="Report the current temperature in Berlin as JSON.",
+)
+````
+
+</Step>
+<Step title="Consume deltas + partial objects">
+
+```python
+async for delta in result.object_stream:
+    print(delta, end="")
+```
+
+Pass `on_partial=lambda obj: print("partial", obj)` to receive partially-parsed objects while streaming.
+
+</Step>
+</Steps>
+
+---
+
+<Tip>
+  If the provider supports native structured output (OpenAI does via <code>response_format</code>)
+  `generate_object` uses it automatically and falls back to JSON-parsing otherwise – so your code
+  stays portable.
+</Tip>

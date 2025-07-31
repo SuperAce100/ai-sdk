@@ -1,0 +1,118 @@
+---
+title: "Text generation"
+description: "generate_text & stream_text – high-level helpers for chat completions with seamless tool-calling & streaming."
+icon: "comment-dots"
+---
+
+import { Note, Tip, Warning, Steps, Step, CodeGroup, Check } from "mintlify/components";
+
+## TL;DR
+
+- **`generate_text`** – single synchronous call → `GenerateTextResult`.
+- **`stream_text`** – async iterator for low-latency streaming.
+- Identical ergonomic signature for every provider that implements the `LanguageModel` interface – OpenAI, Anthropic, …
+- Optional **tool-calling** (functions-as-tools) with zero boilerplate.
+
+---
+
+## Basic usage
+
+<CodeGroup>
+  ```python Generate a greeting from ai_sdk import generate_text, openai model =
+  openai("gpt-4o-mini") res = generate_text(model=model, prompt="Say hi to the world in one
+  sentence") print(res.text) # "Hello, world – great to see you!" print(res.usage) #
+  TokenUsage(prompt_tokens=4, completion_tokens=9, ...) ```
+</CodeGroup>
+
+### Parameters
+
+| Name        | Type                                   | Required                   | Description                                                                                          |
+| ----------- | -------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `model`     | `LanguageModel`                        | ✓                          | Provider instance created via e.g. `openai()` or `anthropic()`                                       |
+| `prompt`    | `str`                                  | one of `prompt`/`messages` | User prompt (plain string).                                                                          |
+| `system`    | `str`                                  | –                          | System instruction prepended to the conversation.                                                    |
+| `messages`  | `List[AnyMessage]`                     | –                          | Fine-grained message array providing full control over roles & multimodal parts. Overrides `prompt`. |
+| `tools`     | `List[Tool]`                           | –                          | Enable iterative tool-calling (see further below).                                                   |
+| `max_steps` | `int`                                  | 8                          | Safeguard to abort endless tool loops.                                                               |
+| `on_step`   | `Callable[[OnStepFinishResult], None]` | –                          | Callback executed after every model ↔ tool round-trip.                                               |
+| `**kwargs`  | provider-specific                      | –                          | Forwarded verbatim to the underlying SDK – e.g. `temperature=0.2`.                                   |
+
+`GenerateTextResult` exposes rich metadata:
+
+```python
+print(res.finish_reason)   # "stop", "length", "tool" …
+print(res.tool_calls)      # populated when tool-calling is active
+print(res.provider_metadata)
+```
+
+## Streaming
+
+Need tokens the millisecond they appear? Use **`stream_text`**.
+
+<Steps>
+<Step title="Kick off the request">
+<CodeGroup>
+```python Streaming example
+from ai_sdk import stream_text, openai
+model = openai("gpt-4o-mini")
+stream_res = stream_text(
+    model=model,
+    prompt="Write an epic poem about the sea",
+)
+```
+</CodeGroup>
+</Step>
+<Step title="Consume the async iterator">
+
+```python
+async for delta in stream_res.text_stream:
+    print(delta, end="", flush=True)  # real-time!
+```
+
+Alternatively call `await stream_res.text()` once to get the full text.
+
+</Step>
+</Steps>
+
+`stream_text` accepts the same parameters as `generate_text` **plus** 3 optional callbacks:
+
+- `on_chunk(delta: str)` – executed for each delta.
+- `on_error(exc: Exception)` – invoked on exception.
+- `on_finish(full_text: str)` – once the stream has finished.
+
+## Tool-calling
+
+<Note>
+  See the dedicated <a href="/ai-sdk/tool-calling">Tool-calling page</a> for a complete walkthrough.
+  Quick teaser:
+</Note>
+
+```python
+from ai_sdk import tool, generate_text, openai
+
+add = tool(
+    name="add",
+    description="Add two integers.",
+    parameters={
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+        "required": ["a", "b"],
+    },
+    execute=lambda a, b: a + b,
+)
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="What is 21 + 21?",
+    tools=[add],
+)
+print(res.text)  # "The result is 42."
+```
+
+---
+
+<Tip>
+  Both helpers are <strong>provider-agnostic</strong>. Swap <code>openai()</code> for{" "}
+  <code>anthropic()</code> or any other future implementation – no code changes required.
+</Tip>

@@ -3,7 +3,7 @@
   "theme": "mint",
   "name": "Mint Starter Kit",
   "colors": {
-    "primary": "#16A34A",
+    "primary": "#00B7EB",
     "light": "#07C983",
     "dark": "#15803D"
   },
@@ -15,18 +15,11 @@
         "groups": [
           {
             "group": "Getting started",
-            "pages": [
-              "index",
-              "quickstart",
-              "development"
-            ]
+            "pages": ["index", "quickstart", "development"]
           },
           {
             "group": "Customization",
-            "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
+            "pages": ["essentials/settings", "essentials/navigation"]
           },
           {
             "group": "Writing content",
@@ -39,10 +32,18 @@
           },
           {
             "group": "AI tools",
+            "pages": ["ai-tools/cursor", "ai-tools/claude-code", "ai-tools/windsurf"]
+          },
+          {
+            "group": "Python AI SDK",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "ai-sdk/introduction",
+              "ai-sdk/text-generation",
+              "ai-sdk/object-generation",
+              "ai-sdk/embeddings",
+              "ai-sdk/tool-calling",
+              "ai-sdk/providers",
+              "ai-sdk/types"
             ]
           }
         ]
@@ -52,9 +53,7 @@
         "groups": [
           {
             "group": "API documentation",
-            "pages": [
-              "api-reference/introduction"
-            ]
+            "pages": ["api-reference/introduction"]
           },
           {
             "group": "Endpoint examples",
@@ -106,16 +105,7 @@
     }
   },
   "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+    "options": ["copy", "view", "chatgpt", "claude", "perplexity", "mcp", "cursor", "vscode"]
   },
   "footer": {
     "socials": {

@@ -1,0 +1,66 @@
+---
+title: "Data types"
+description: "Pydantic models used by the SDK – message hierarchy, token usage, tool calls and more."
+icon: "table-cells"
+---
+
+import { CodeGroup, Tip } from "mintlify/components";
+
+All public result objects & helper parameters rely on a small set of **immutable** Pydantic models defined in `ai_sdk.types`.
+
+---
+
+## Messages
+
+### CoreMessage subclasses
+
+| Class                  | Role        | Typical usage                                              |
+| ---------------------- | ----------- | ---------------------------------------------------------- |
+| `CoreSystemMessage`    | `system`    | Set behaviour & identity of the assistant.                 |
+| `CoreUserMessage`      | `user`      | Explicit user instructions (text / images / files).        |
+| `CoreAssistantMessage` | `assistant` | Model responses (text, reasoning, tool calls).             |
+| `CoreToolMessage`      | `tool`      | Container for tool <em>results</em> fed back to the model. |
+
+Each subclass exposes a `.to_dict()` helper that returns the OpenAI-compatible representation, so you can seamlessly drop them into the low-level `LanguageModel` interface if needed.
+
+### Content parts
+
+<CodeGroup>
+  ```python parts breakdown from ai_sdk.types import TextPart, ImagePart, ToolCallPart,
+  ToolResultPart ```
+</CodeGroup>
+
+Parts make multimodal messages explicit. For example a user message containing both text <em>and</em> an image:
+
+```python
+CoreUserMessage(
+  content=[
+    TextPart(text="Describe this painting"),
+    ImagePart(image="https://example.com/monet.jpg", mime_type="image/jpeg"),
+  ]
+)
+```
+
+---
+
+## TokenUsage
+
+Simple container holding `prompt_tokens`, `completion_tokens`, `total_tokens` – populated on all helpers when the provider returns usage data.
+
+## ToolCall / ToolResult
+
+Used internally for the tool-calling loop but exposed on `GenerateTextResult` so you can inspect or persist the chain-of-thought.
+
+## OnStepFinishResult
+
+Object passed to the optional `on_step` callback after <strong>every</strong> model ↔ tool interaction. Fields include:
+
+- `step_type` – one of `initial`, `continue`, `tool-result`.
+- `finish_reason`, `usage`, `text`, `tool_calls`, `tool_results`, …
+
+---
+
+<Tip>
+  All types are **frozen** (`pydantic.ConfigDict(frozen=True)`) meaning you can safely log & share
+  them without accidental mutation.
+</Tip>

@@ -1,0 +1,94 @@
+---
+title: "Tool calling"
+description: "Turn any Python function into an LLM-callable tool with a single decorator."
+icon: "toolbox"
+---
+
+import { Steps, Step, CodeGroup, Tip, Warning } from "mintlify/components";
+
+## What & why
+
+Tools allow the model to **invoke real code** in the middle of a conversation.
+The pattern:
+
+1. Model responds with one or more <em>tool calls</em> (function name + JSON args).
+2. SDK executes the corresponding Python callable.
+3. The <em>tool result</em> is appended to the conversation and fed back to the model.
+
+All of this orchestration is baked into `generate_text`/`stream_text` – you just need to define the tool manifest.
+
+---
+
+## Defining a tool
+
+<CodeGroup>
+```python Define a quick math tool
+from ai_sdk import tool, generate_text, openai
+
+add = tool(
+name="add",
+description="Add two numbers and return the sum.",
+parameters={
+"type": "object",
+"properties": {
+"x": {"type": "number"},
+"y": {"type": "number"},
+},
+"required": ["x", "y"],
+},
+execute=lambda x, y: x + y,
+)
+
+````
+</CodeGroup>
+
+### Anatomy
+
+| Field | Description |
+|-------|-------------|
+| `name` | Unique identifier the model will reference. |
+| `description` | Human-readable summary – tells the model when to call the tool. |
+| `parameters` | JSON-Schema object as required by OpenAI function calling. |
+| `execute` | Python callable (sync or async) implementing the logic. |
+
+---
+
+## Using tools with generate_text
+
+<Steps>
+<Step title="Instantiate a model & call the helper">
+
+```python
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="What is 123 + 456?",
+    tools=[add],
+)
+````
+
+</Step>
+<Step title="Under the hood">
+
+1. SDK submits the prompt **and** tool manifest to OpenAI.
+2. Model replies with a tool invocation: `{ "name": "add", "args": {"x": 123, "y": 456} }`.
+3. SDK executes `add(123, 456)` and appends the result `{ "result": 579 }` as a <code>tool</code> message.
+4. Model receives the updated conversation and returns the final answer.
+      </Step>
+</Steps>
+
+`GenerateTextResult.tool_calls` and `.tool_results` give you complete transparency for auditing / debugging.
+
+```python
+for tc in res.tool_calls:
+    print(tc.tool_name, tc.args)
+for tr in res.tool_results:
+    print(tr.result)
+```
+
+---
+
+<Tip>
+  Set <code>max_steps</code> (default <code>8</code>) to guard against runaway tool loops.
+</Tip>
+````

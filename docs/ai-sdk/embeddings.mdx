@@ -1,0 +1,81 @@
+---
+title: "Embeddings"
+description: "Embed text (or any supported modality) into high-dimensional vectors & measure similarity."
+icon: "vector-square"
+---
+
+import { CodeGroup, Note, Warning, Tip } from "mintlify/components";
+
+## Overview
+
+`ai_sdk.embed_many` and `ai_sdk.embed` provide a provider-agnostic façade over any `EmbeddingModel` implementation.
+
+Features:
+
+- Automatic batching respecting the provider’s `max_batch_size` limit.
+- Retry logic with exponential back-off (`max_retries` parameter).
+- Unified return objects with optional token usage.
+
+---
+
+## Quick example
+
+<CodeGroup>
+```python Text embeddings
+from ai_sdk import openai, embed_many, cosine_similarity
+
+model = openai.embedding("text-embedding-3-small")
+
+sentences = [
+"The cat sat on the mat.",
+"A dog was lying on the rug.",
+"Paris is the capital of France.",
+]
+
+res = embed_many(model=model, values=sentences)
+print(len(res.embeddings)) # 3
+print(res.usage) # token stats
+
+sim = cosine_similarity(res.embeddings[0], res.embeddings[1])
+print(sim) # ~0.8 – sentences are semantically similar
+
+````
+</CodeGroup>
+
+### Return objects
+
+* `EmbedManyResult` → `.values`, `.embeddings`, `.usage`, `.provider_metadata` …
+* `EmbedResult` → `.value`, `.embedding`, … (returned by single-value `embed` helper)
+
+---
+
+## Single value helper
+
+```python
+from ai_sdk import embed
+single = embed(model=model, value="Hello world")
+print(single.embedding[:5])
+````
+
+---
+
+## Custom providers
+
+Implement the `EmbeddingModel` ABC to bring your own model:
+
+```python
+from ai_sdk.providers.embedding_model import EmbeddingModel
+
+class MyFastAPIBackend(EmbeddingModel):
+    max_batch_size = 128
+    def embed_many(self, values, **kwargs):
+        # HTTP POST → return dict with "embeddings" key
+        ...
+```
+
+Now pass an instance to `embed_many` – all batching / retries are handled for you.
+
+<Tip>
+  Use `cosine_similarity(vec_a, vec_b)` for quick similarity checks – it’s dependency-free. If you
+  already use NumPy you can swap in your own implementation, the SDK doesn’t enforce anything.
+</Tip>

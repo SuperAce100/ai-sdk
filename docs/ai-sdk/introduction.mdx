@@ -1,0 +1,69 @@
+---
+title: "Python AI SDK overview"
+description: "Overview, installation, and quick-start for the ai_sdk package – an ergonomic wrapper around modern LLM / embedding providers."
+icon: "python"
+---
+
+import { Card, CardGroup, Note, Tip, Steps, Step, CodeGroup, Check } from "mintlify/components";
+
+<Note>
+  The <code>ai_sdk</code> package is a **pure Python** re-implementation of Vercel’s popular AI SDK
+  for&nbsp;TypeScript. It keeps the same ergonomic high-level helpers (<code>generate_text</code>,{" "}
+  <code>stream_text</code>, <code>embed</code> …) while embracing Python&nbsp;idioms such as{" "}
+  <a href="https://pydantic.dev">Pydantic</a> models and <code>async</code>/<code>await</code>.
+</Note>
+
+## Why another SDK?
+
+- Zero-configuration _helper_ functions that work the same across providers.
+- First-class **streaming** & **tool-calling** support.
+- <strong>Typed</strong> structured-output generation via Pydantic models.
+- Provider-agnostic embeddings with built-in batching & retry logic.
+- Tiny dependency footprint – only the provider SDKs you actually use.
+
+## Installation
+
+```bash
+pip install ai-sdk openai  # + any other provider SDK you need
+```
+
+That’s it – no extra build steps or config files.
+
+## Quick-start
+
+<CodeGroup>
+```python Quick-start
+from ai_sdk import openai, generate_text
+
+# 1) Create a model instance (re-usable)
+
+model = openai("gpt-4o-mini") # uses $OPENAI_API_KEY by default
+
+# 2) Generate text
+
+res = generate_text(model=model, prompt="Tell me a haiku about Python")
+print(res.text)
+
+```
+</CodeGroup>
+
+The high-level helpers are **synchronous** by design so they just work inside scripts & notebooks.
+Need low-latency streaming instead? swap <code>generate_text</code> for <code>stream_text</code> – no other changes required.
+
+## What’s next?
+
+<CardGroup cols={2}>
+<Card title="Text generation" href="/ai-sdk/text-generation" icon="comment-dots">
+Generate & stream text with a single line of code.
+</Card>
+<Card title="Embeddings" href="/ai-sdk/embeddings" icon="vector-square">
+Create vector embeddings and compute cosine similarity.
+</Card>
+<Card title="Structured output" href="/ai-sdk/object-generation" icon="boxes-packing">
+Return fully-validated Pydantic objects – no messy JSON parsing.
+</Card>
+<Card title="Tool calling" href="/ai-sdk/tool-calling" icon="toolbox">
+Build iterative agent-like flows with real Python functions.
+</Card>
+</CardGroup>
+```
