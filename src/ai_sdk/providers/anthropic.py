@@ -95,14 +95,45 @@ class AnthropicModel(LanguageModel):
         messages: Optional[List[Dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
-        """Stream text deltas; falls back to non-streaming."""
+        """Stream deltas via OpenAI SDK compatibility."""
+        if prompt is None and not messages:
+            raise ValueError("Either 'prompt' or 'messages' must be provided.")
 
-        # Fallback streaming: emit full text once
+        # Build messages and merge kwargs
+        chat_messages = _build_chat_messages(
+            prompt=prompt, system=system, messages=messages
+        )
+        request_kwargs: Dict[str, Any] = {**self._default_kwargs, **kwargs}
+
+        import asyncio
+        import threading
+
         async def _generator() -> AsyncIterator[str]:
-            result = self.generate_text(
-                prompt=prompt, system=system, messages=messages, **kwargs
-            )
-            yield result.get("text", "")
+            queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
+
+            def _producer() -> None:
+                try:
+                    for chunk in self._client.chat.completions.create(
+                        model=self._model,
+                        messages=chat_messages,
+                        stream=True,
+                        **request_kwargs,
+                    ):  # type: ignore[typing-arg-types]
+                        delta = chunk.choices[0].delta
+                        content = getattr(delta, "content", None)
+                        if content:
+                            asyncio.run_coroutine_threadsafe(queue.put(content), loop)
+                finally:
+                    asyncio.run_coroutine_threadsafe(queue.put(None), loop)
+
+            loop = asyncio.get_running_loop()
+            threading.Thread(target=_producer, daemon=True).start()
+
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                yield item
 
         return _generator()
 
