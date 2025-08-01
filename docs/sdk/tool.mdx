@@ -1,0 +1,470 @@
+---
+title: "tool"
+description: "Turn any Python function into an LLM-callable tool with a single decorator."
+icon: "toolbox"
+---
+
+import { Steps, Step, CodeGroup, Tip, Warning } from "mintlify/components";
+
+## Overview
+
+`tool` is a decorator that turns any Python function into an LLM-callable tool. It allows models to invoke real code during conversations, enabling powerful interactive applications.
+
+## What & why
+
+Tools allow the model to **invoke real code** in the middle of a conversation. The pattern:
+
+1. Model responds with one or more <em>tool calls</em> (function name + JSON args).
+2. SDK executes the corresponding Python callable.
+3. The <em>tool result</em> is appended to the conversation and fed back to the model.
+
+All of this orchestration is baked into `generate_text`/`stream_text` – you just need to define the tool manifest.
+
+## Basic usage
+
+```python tool.py
+from ai_sdk import tool, generate_text, openai
+
+add = tool(
+    name="add",
+    description="Add two numbers and return the sum.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"},
+        },
+        "required": ["x", "y"],
+    },
+    execute=lambda x, y: x + y,
+)
+```
+
+## Parameters
+
+| Field         | Type       | Required | Description                                                     |
+| ------------- | ---------- | -------- | --------------------------------------------------------------- |
+| `name`        | `str`      | ✓        | Unique identifier the model will reference.                     |
+| `description` | `str`      | ✓        | Human-readable summary – tells the model when to call the tool. |
+| `parameters`  | `dict`     | ✓        | JSON-Schema object as required by OpenAI function calling.      |
+| `execute`     | `Callable` | ✓        | Python callable (sync or async) implementing the logic.         |
+
+## Examples
+
+### Simple math tool
+
+```python
+from ai_sdk import tool, generate_text, openai
+
+add = tool(
+    name="add",
+    description="Add two numbers and return the sum.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"},
+        },
+        "required": ["x", "y"],
+    },
+    execute=lambda x, y: x + y,
+)
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="What is 123 + 456?",
+    tools=[add],
+)
+print(res.text)  # "The result is 579."
+```
+
+### Weather API tool
+
+```python
+from ai_sdk import tool, generate_text, openai
+import requests
+
+def get_weather(city: str) -> str:
+    """Get current weather for a city."""
+    # Mock weather API call
+    weather_data = {
+        "New York": "72°F, Sunny",
+        "London": "55°F, Rainy",
+        "Tokyo": "68°F, Cloudy"
+    }
+    return weather_data.get(city, "Weather data not available")
+
+weather_tool = tool(
+    name="get_weather",
+    description="Get current weather information for a city.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "city": {
+                "type": "string",
+                "description": "The city name to get weather for"
+            }
+        },
+        "required": ["city"]
+    },
+    execute=get_weather
+)
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="What's the weather like in New York?",
+    tools=[weather_tool],
+)
+print(res.text)
+```
+
+### Database query tool
+
+```python
+from ai_sdk import tool, generate_text, openai
+
+def query_database(query: str) -> str:
+    """Execute a database query and return results."""
+    # Mock database
+    users = [
+        {"id": 1, "name": "Alice", "email": "alice@example.com"},
+        {"id": 2, "name": "Bob", "email": "bob@example.com"},
+        {"id": 3, "name": "Charlie", "email": "charlie@example.com"}
+    ]
+
+    if "name" in query.lower():
+        return str([user["name"] for user in users])
+    elif "email" in query.lower():
+        return str([user["email"] for user in users])
+    else:
+        return str(users)
+
+db_tool = tool(
+    name="query_database",
+    description="Query the user database for information.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The query to execute"
+            }
+        },
+        "required": ["query"]
+    },
+    execute=query_database
+)
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="Show me all user names from the database",
+    tools=[db_tool],
+)
+print(res.text)
+```
+
+### File system tool
+
+```python
+from ai_sdk import tool, generate_text, openai
+import os
+
+def list_files(directory: str) -> str:
+    """List files in a directory."""
+    try:
+        files = os.listdir(directory)
+        return str(files)
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+def read_file(filename: str) -> str:
+    """Read contents of a file."""
+    try:
+        with open(filename, 'r') as f:
+            return f.read()
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+file_tools = [
+    tool(
+        name="list_files",
+        description="List files in a directory.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "directory": {
+                    "type": "string",
+                    "description": "Directory path to list"
+                }
+            },
+            "required": ["directory"]
+        },
+        execute=list_files
+    ),
+    tool(
+        name="read_file",
+        description="Read contents of a file.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "filename": {
+                    "type": "string",
+                    "description": "File path to read"
+                }
+            },
+            "required": ["filename"]
+        },
+        execute=read_file
+    )
+]
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="List files in the current directory and read the README file",
+    tools=file_tools,
+)
+print(res.text)
+```
+
+### Async tool example
+
+```python
+import asyncio
+from ai_sdk import tool, generate_text, openai
+
+async def fetch_data(url: str) -> str:
+    """Fetch data from a URL."""
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            return await response.text()
+
+fetch_tool = tool(
+    name="fetch_data",
+    description="Fetch data from a URL.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "url": {
+                "type": "string",
+                "description": "URL to fetch data from"
+            }
+        },
+        "required": ["url"]
+    },
+    execute=fetch_data
+)
+
+async def main():
+    model = openai("gpt-4o-mini")
+    res = generate_text(
+        model=model,
+        prompt="Fetch data from https://api.example.com/data",
+        tools=[fetch_tool],
+    )
+    print(res.text)
+
+asyncio.run(main())
+```
+
+## Tool calling with other functions
+
+### With generate_text
+
+```python
+from ai_sdk import tool, generate_text, openai
+
+calculator = tool(
+    name="calculate",
+    description="Perform mathematical calculations.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "expression": {
+                "type": "string",
+                "description": "Mathematical expression to evaluate"
+            }
+        },
+        "required": ["expression"]
+    },
+    execute=lambda expr: eval(expr)  # Note: eval is unsafe in production
+)
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="Calculate (15 * 3) + 7",
+    tools=[calculator],
+)
+print(res.text)
+```
+
+### With stream_text
+
+```python
+import asyncio
+from ai_sdk import tool, stream_text, openai
+
+search_tool = tool(
+    name="search",
+    description="Search for information on the web.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Search query"
+            }
+        },
+        "required": ["query"]
+    },
+    execute=lambda query: f"Search results for '{query}': [mock results]"
+)
+
+async def main():
+    model = openai("gpt-4o-mini")
+    stream_res = stream_text(
+        model=model,
+        prompt="Search for information about Python programming",
+        tools=[search_tool],
+    )
+
+    async for chunk in stream_res.text_stream:
+        print(chunk, end="", flush=True)
+
+asyncio.run(main())
+```
+
+## Debugging tool calls
+
+You can inspect tool calls and results for debugging:
+
+```python
+from ai_sdk import tool, generate_text, openai
+
+add = tool(
+    name="add",
+    description="Add two numbers.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "a": {"type": "number"},
+            "b": {"type": "number"},
+        },
+        "required": ["a", "b"],
+    },
+    execute=lambda a, b: a + b,
+)
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="What is 21 + 21?",
+    tools=[add],
+)
+
+# Inspect tool calls
+for tc in res.tool_calls:
+    print(f"Tool called: {tc.tool_name}")
+    print(f"Arguments: {tc.args}")
+
+# Inspect tool results
+for tr in res.tool_results:
+    print(f"Tool result: {tr.result}")
+```
+
+## Best practices
+
+### Clear descriptions
+
+```python
+# Good
+tool(
+    name="get_user_info",
+    description="Retrieve user information by user ID. Use this when the user asks about account details, profile information, or user data.",
+    # ...
+)
+
+# Bad
+tool(
+    name="get_user_info",
+    description="Get user info",
+    # ...
+)
+```
+
+### Proper parameter schemas
+
+```python
+# Good - detailed schema
+tool(
+    name="create_user",
+    description="Create a new user account.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "User's full name",
+                "minLength": 1
+            },
+            "email": {
+                "type": "string",
+                "description": "User's email address",
+                "format": "email"
+            },
+            "age": {
+                "type": "integer",
+                "description": "User's age",
+                "minimum": 13,
+                "maximum": 120
+            }
+        },
+        "required": ["name", "email"]
+    },
+    execute=create_user
+)
+```
+
+### Error handling
+
+```python
+def safe_calculator(expression: str) -> str:
+    """Safe calculator that handles errors gracefully."""
+    try:
+        result = eval(expression)  # Note: eval is unsafe in production
+        return str(result)
+    except Exception as e:
+        return f"Error calculating '{expression}': {str(e)}"
+
+calc_tool = tool(
+    name="calculate",
+    description="Perform mathematical calculations safely.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "expression": {
+                "type": "string",
+                "description": "Mathematical expression to evaluate"
+            }
+        },
+        "required": ["expression"]
+    },
+    execute=safe_calculator
+)
+```
+
+---
+
+<Tip>
+  Set <code>max_steps</code> (default <code>8</code>) to guard against runaway tool loops.
+</Tip>
+
+<Warning>
+  Always validate and sanitize inputs in your tool functions, especially when using{" "}
+  <code>eval()</code> or similar functions.
+</Warning>{" "}

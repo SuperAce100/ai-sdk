@@ -1,0 +1,203 @@
+---
+title: "stream_text"
+description: "Stream text asynchronously for low-latency real-time generation with optional callbacks."
+icon: "radio"
+---
+
+import { Note, Tip, Warning, Steps, Step, CodeGroup, Check } from "mintlify/components";
+
+## Overview
+
+`stream_text` is an async iterator for low-latency streaming text generation. It provides real-time access to tokens as they're generated, with optional callbacks for chunk processing, error handling, and completion.
+
+## Basic usage
+
+<Steps>
+<Step title="Kick off the request">
+<CodeGroup>
+```python Streaming example
+from ai_sdk import stream_text, openai
+model = openai("gpt-4o-mini")
+stream_res = stream_text(
+    model=model,
+    prompt="Write an epic poem about the sea",
+)
+```
+</CodeGroup>
+</Step>
+<Step title="Consume the async iterator">
+
+```python
+async for delta in stream_res.text_stream:
+    print(delta, end="", flush=True)  # real-time!
+```
+
+Alternatively call `await stream_res.text()` once to get the full text.
+
+</Step>
+</Steps>
+
+## Parameters
+
+| Name        | Type                                   | Required                   | Description                                                                                          |
+| ----------- | -------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `model`     | `LanguageModel`                        | ✓                          | Provider instance created via e.g. `openai()` or `anthropic()`                                       |
+| `prompt`    | `str`                                  | one of `prompt`/`messages` | User prompt (plain string).                                                                          |
+| `system`    | `str`                                  | –                          | System instruction prepended to the conversation.                                                    |
+| `messages`  | `List[AnyMessage]`                     | –                          | Fine-grained message array providing full control over roles & multimodal parts. Overrides `prompt`. |
+| `tools`     | `List[Tool]`                           | –                          | Enable iterative tool-calling (see further below).                                                   |
+| `max_steps` | `int`                                  | 8                          | Safeguard to abort endless tool loops.                                                               |
+| `on_step`   | `Callable[[OnStepFinishResult], None]` | –                          | Callback executed after every model ↔ tool round-trip.                                               |
+| `on_chunk`  | `Callable[[str], None]`                | –                          | Callback executed for each text chunk.                                                               |
+| `on_error`  | `Callable[[Exception], None]`          | –                          | Callback executed on exception.                                                                      |
+| `on_finish` | `Callable[[str], None]`                | –                          | Callback executed once the stream has finished.                                                      |
+| `**kwargs`  | provider-specific                      | –                          | Forwarded verbatim to the underlying SDK – e.g. `temperature=0.2`.                                   |
+
+## Return value
+
+`stream_text` returns a `StreamTextResult` with:
+
+- `text_stream`: Async iterator yielding text chunks
+- `text()`: Async method to get the complete text
+- `usage`: Token usage statistics
+- `finish_reason`: Why the stream ended
+- `tool_calls`: Tool calls if any were made
+
+## Examples
+
+### Basic streaming
+
+```python
+import asyncio
+from ai_sdk import stream_text, openai
+
+async def main():
+    model = openai("gpt-4o-mini")
+    stream_res = stream_text(
+        model=model,
+        prompt="Write a short story about a robot learning to paint"
+    )
+
+    async for chunk in stream_res.text_stream:
+        print(chunk, end="", flush=True)
+
+    print(f"\n\nTotal tokens: {stream_res.usage.completion_tokens}")
+
+asyncio.run(main())
+```
+
+### With callbacks
+
+```python
+import asyncio
+from ai_sdk import stream_text, openai
+
+async def main():
+    model = openai("gpt-4o-mini")
+
+    def on_chunk(chunk):
+        print(f"Chunk: {chunk}")
+
+    def on_error(exc):
+        print(f"Error: {exc}")
+
+    def on_finish(full_text):
+        print(f"Finished! Total length: {len(full_text)}")
+
+    stream_res = stream_text(
+        model=model,
+        prompt="Explain quantum computing in simple terms",
+        on_chunk=on_chunk,
+        on_error=on_error,
+        on_finish=on_finish
+    )
+
+    # Get the full text at once
+    full_text = await stream_res.text()
+    print(f"Complete text: {full_text}")
+
+asyncio.run(main())
+```
+
+### With system instruction
+
+```python
+import asyncio
+from ai_sdk import stream_text, openai
+
+async def main():
+    model = openai("gpt-4o-mini")
+    stream_res = stream_text(
+        model=model,
+        system="You are a helpful teacher. Explain complex topics in simple terms.",
+        prompt="What is machine learning?"
+    )
+
+    async for chunk in stream_res.text_stream:
+        print(chunk, end="", flush=True)
+
+asyncio.run(main())
+```
+
+### With custom parameters
+
+```python
+import asyncio
+from ai_sdk import stream_text, openai
+
+async def main():
+    model = openai("gpt-4o-mini")
+    stream_res = stream_text(
+        model=model,
+        prompt="Write a creative poem",
+        temperature=0.9,
+        max_tokens=200
+    )
+
+    async for chunk in stream_res.text_stream:
+        print(chunk, end="", flush=True)
+
+asyncio.run(main())
+```
+
+## Tool-calling with streaming
+
+<Note>
+  See the dedicated <a href="/sdk/tool">Tool page</a> for a complete walkthrough.
+</Note>
+
+```python
+import asyncio
+from ai_sdk import tool, stream_text, openai
+
+async def main():
+    add = tool(
+        name="add",
+        description="Add two integers.",
+        parameters={
+            "type": "object",
+            "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+            "required": ["a", "b"],
+        },
+        execute=lambda a, b: a + b,
+    )
+
+    model = openai("gpt-4o-mini")
+    stream_res = stream_text(
+        model=model,
+        prompt="What is 15 + 27?",
+        tools=[add],
+    )
+
+    async for chunk in stream_res.text_stream:
+        print(chunk, end="", flush=True)
+
+asyncio.run(main())
+```
+
+---
+
+<Tip>
+  `stream_text` is <strong>provider-agnostic</strong>. Swap <code>openai()</code> for{" "}
+  <code>anthropic()</code> or any other future implementation – no code changes required.
+</Tip>{" "}

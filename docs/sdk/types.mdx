@@ -25,19 +25,18 @@ Each subclass exposes a `.to_dict()` helper that returns the OpenAI-compatible r
 
 ### Content parts
 
-<CodeGroup>
-  ```python parts breakdown from ai_sdk.types import TextPart, ImagePart, ToolCallPart,
-  ToolResultPart ```
-</CodeGroup>
+```python parts_breakdown.py lines icon="python"
+from ai_sdk.types import TextPart, ImagePart, ToolCallPart, ToolResultPart
+```
 
 Parts make multimodal messages explicit. For example a user message containing both text <em>and</em> an image:
 
 ```python
 CoreUserMessage(
-  content=[
-    TextPart(text="Describe this painting"),
-    ImagePart(image="https://example.com/monet.jpg", mime_type="image/jpeg"),
-  ]
+content=[
+  TextPart(text="Describe this painting"),
+  ImagePart(image="https://example.com/monet.jpg", mime_type="image/jpeg"),
+]
 )
 ```
 

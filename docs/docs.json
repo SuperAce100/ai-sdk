@@ -4,8 +4,8 @@
   "name": "Mint Starter Kit",
   "colors": {
     "primary": "#00B7EB",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "light": "#00B7EB",
+    "dark": "#00B7EB"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -33,13 +33,20 @@
         "tab": "Reference",
         "groups": [
           {
-            "group": "Functions",
-            "pages": [
-              "sdk/text-generation",
-              "sdk/object-generation",
-              "sdk/embeddings",
-              "sdk/tool-calling"
-            ]
+            "group": "Text Generation",
+            "pages": ["sdk/generate_text", "sdk/stream_text"]
+          },
+          {
+            "group": "Object Generation",
+            "pages": ["sdk/generate_object", "sdk/stream_object"]
+          },
+          {
+            "group": "Embeddings",
+            "pages": ["sdk/embed", "sdk/embed_many", "sdk/cosine_similarity"]
+          },
+          {
+            "group": "Tools",
+            "pages": ["sdk/tool"]
           },
           {
             "group": "Providers",
@@ -75,14 +82,9 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:asanshay@bharatgupta.com"
       }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
+    ]
   },
   "contextual": {
     "options": ["copy", "view", "chatgpt", "claude", "perplexity", "mcp", "cursor", "vscode"]

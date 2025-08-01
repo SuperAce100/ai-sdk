@@ -1,23 +1,18 @@
 ---
-title: "Text generation"
-description: "generate_text & stream_text - high-level helpers for chat completions with seamless tool-calling & streaming."
-icon: "comment-dots"
+title: "generate_text"
+description: "Generate text synchronously with a single call - returns a GenerateTextResult with rich metadata."
+icon: "message-circle"
 ---
 
 import { Note, Tip, Warning, Steps, Step, CodeGroup, Check } from "mintlify/components";
 
-## TL;DR
+## Overview
 
-- **`generate_text`** - single synchronous call → `GenerateTextResult`.
-- **`stream_text`** - async iterator for low-latency streaming.
-- Identical ergonomic signature for every provider that implements the `LanguageModel` interface - OpenAI, Anthropic, …
-- Optional **tool-calling** (functions-as-tools) with zero boilerplate.
-
----
+`generate_text` is a high-level helper for synchronous text generation that returns a `GenerateTextResult` with rich metadata including usage statistics, finish reasons, and tool calls.
 
 ## Basic usage
 
-```python generate_text.py lines icon="python"
+```python generate_text.py
 from ai_sdk import generate_text, openai
 
 model = openai("gpt-4o-mini")
@@ -26,7 +21,7 @@ print(res.text) # "Hello, world – great to see you!"
 print(res.usage) # TokenUsage(prompt_tokens=4, completion_tokens=9, ...)
 ```
 
-### Parameters
+## Parameters
 
 | Name        | Type                                   | Required                   | Description                                                                                          |
 | ----------- | -------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -39,6 +34,8 @@ print(res.usage) # TokenUsage(prompt_tokens=4, completion_tokens=9, ...)
 | `on_step`   | `Callable[[OnStepFinishResult], None]` | –                          | Callback executed after every model ↔ tool round-trip.                                               |
 | `**kwargs`  | provider-specific                      | –                          | Forwarded verbatim to the underlying SDK – e.g. `temperature=0.2`.                                   |
 
+## Return value
+
 `GenerateTextResult` exposes rich metadata:
 
 ```python
@@ -47,49 +44,55 @@ print(res.tool_calls)      # populated when tool-calling is active
 print(res.provider_metadata)
 ```
 
-## Streaming
+## Examples
 
-Need tokens the millisecond they appear? Use **`stream_text`**.
-
-<Steps>
-<Step title="Kick off the request">
-<CodeGroup>
-```python Streaming example
-from ai_sdk import stream_text, openai
-model = openai("gpt-4o-mini")
-stream_res = stream_text(
-    model=model,
-    prompt="Write an epic poem about the sea",
-)
-```
-</CodeGroup>
-</Step>
-<Step title="Consume the async iterator">
+### Basic text generation
 
 ```python
-async for delta in stream_res.text_stream:
-    print(delta, end="", flush=True)  # real-time!
+from ai_sdk import generate_text, openai
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="Write a haiku about programming"
+)
+print(res.text)
 ```
 
-Alternatively call `await stream_res.text()` once to get the full text.
+### With system instruction
 
-</Step>
-</Steps>
+```python
+from ai_sdk import generate_text, openai
 
-`stream_text` accepts the same parameters as `generate_text` **plus** 3 optional callbacks:
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    system="You are a helpful coding assistant. Always provide clear, concise explanations.",
+    prompt="Explain what recursion is in simple terms"
+)
+print(res.text)
+```
 
-- `on_chunk(delta: str)` – executed for each delta.
-- `on_error(exc: Exception)` – invoked on exception.
-- `on_finish(full_text: str)` – once the stream has finished.
+### With custom parameters
+
+```python
+from ai_sdk import generate_text, openai
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="Write a creative story",
+    temperature=0.8,
+    max_tokens=500
+)
+print(res.text)
+```
 
 ## Tool-calling
 
 <Note>
-  See the dedicated <a href="/ai-sdk/tool-calling">Tool-calling page</a> for a complete walkthrough.
-  Quick teaser:
+  See the dedicated <a href="/sdk/tool">Tool page</a> for a complete walkthrough.
 </Note>
-
-For a complete example, see <a href="/examples/tool-agent">Tool-calling agent loop</a>.
 
 ```python
 from ai_sdk import tool, generate_text, openai
@@ -117,6 +120,6 @@ print(res.text)  # "The result is 42."
 ---
 
 <Tip>
-  Both helpers are <strong>provider-agnostic</strong>. Swap <code>openai()</code> for{" "}
+  `generate_text` is <strong>provider-agnostic</strong>. Swap <code>openai()</code> for{" "}
   <code>anthropic()</code> or any other future implementation – no code changes required.
-</Tip>
+</Tip>{" "}

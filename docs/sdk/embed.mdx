@@ -1,0 +1,107 @@
+---
+title: "embed"
+description: "Embed a single text value into a high-dimensional vector for semantic analysis."
+icon: "vector-square"
+---
+
+import { CodeGroup, Note, Warning, Tip } from "mintlify/components";
+
+## Overview
+
+`embed` is a convenience helper for embedding a single text value. It provides a provider-agnostic façade over any `EmbeddingModel` implementation with automatic retry logic and unified return objects.
+
+## Basic usage
+
+```python embed.py
+from ai_sdk import embed, openai
+
+model = openai.embedding("text-embedding-3-small")
+result = embed(model=model, value="Hello world")
+print(result.embedding[:5])  # First 5 dimensions
+print(result.usage)  # Token usage statistics
+```
+
+## Parameters
+
+| Name       | Type              | Required | Description                                             |
+| ---------- | ----------------- | -------- | ------------------------------------------------------- |
+| `model`    | `EmbeddingModel`  | ✓        | Provider instance created via e.g. `openai.embedding()` |
+| `value`    | `str`             | ✓        | Text to embed                                           |
+| `**kwargs` | provider-specific | –        | Forwarded verbatim to the underlying SDK                |
+
+## Return value
+
+`EmbedResult` exposes:
+
+- `embedding`: The embedding vector (list of floats)
+- `value`: The original input text
+- `usage`: Token usage statistics (if available)
+- `provider_metadata`: Provider-specific metadata
+
+## Examples
+
+### Basic embedding
+
+```python
+from ai_sdk import embed, openai
+
+model = openai.embedding("text-embedding-3-small")
+result = embed(model=model, value="The quick brown fox jumps over the lazy dog")
+print(f"Embedding dimensions: {len(result.embedding)}")
+print(f"First 5 values: {result.embedding[:5]}")
+```
+
+### With custom parameters
+
+```python
+from ai_sdk import embed, openai
+
+model = openai.embedding("text-embedding-3-small")
+result = embed(
+    model=model,
+    value="A complex technical document about machine learning",
+    encoding_format="float"  # OpenAI-specific parameter
+)
+print(f"Embedding: {result.embedding[:10]}...")
+```
+
+### Error handling
+
+```python
+from ai_sdk import embed, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+try:
+    result = embed(model=model, value="")
+    print(f"Embedding: {result.embedding[:5]}")
+except Exception as e:
+    print(f"Embedding failed: {e}")
+```
+
+## Custom providers
+
+Implement the `EmbeddingModel` ABC to bring your own model:
+
+```python
+from ai_sdk.providers.embedding_model import EmbeddingModel
+
+class MyFastAPIBackend(EmbeddingModel):
+    max_batch_size = 128
+
+    def embed_many(self, values, **kwargs):
+        # HTTP POST → return dict with "embeddings" key
+        # Implementation here
+        pass
+
+# Now use it with embed
+model = MyFastAPIBackend()
+result = embed(model=model, value="Hello world")
+print(result.embedding)
+```
+
+---
+
+<Tip>
+  For multiple values, use <code>embed_many</code> instead - it's more efficient due to batching.
+</Tip>{" "}

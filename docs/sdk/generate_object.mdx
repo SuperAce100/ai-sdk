@@ -1,0 +1,218 @@
+---
+title: "generate_object"
+description: "Parse model output directly into your own Pydantic models with automatic validation and retries."
+icon: "boxes-packing"
+---
+
+import { Note, Tip, Warning, CodeGroup, Steps, Step } from "mintlify/components";
+
+## Overview
+
+`generate_object` parses model output directly into your own Pydantic models with automatic validation and retries. It solves the problem of LLM hallucination by validating responses against a schema and retrying when needed.
+
+## Why structured output?
+
+LLMs love to hallucinate – a missing comma can break your JSON parser. `generate_object` solves this by **validating** the response against a Pydantic schema and retries when needed.
+
+## Basic usage
+
+```python generate_object.py
+from ai_sdk import generate_object, openai
+from pydantic import BaseModel
+
+class Todo(BaseModel):
+    id: int
+    title: str
+    done: bool = False
+
+model = openai("gpt-4o-mini", temperature=0)
+
+res = generate_object(
+    model=model,
+    schema=Todo,
+    prompt="Create a TODO item for buying milk. Return ONLY the JSON object.",
+)
+print(res.object) # Todo(id=1, title='Buy milk', done=False)
+print(res.raw_text) # original text (for debugging)
+```
+
+## Parameters
+
+Same as `generate_text` **plus**:
+
+| Name     | Type              | Required | Description                                       |
+| -------- | ----------------- | -------- | ------------------------------------------------- |
+| `schema` | `Type[BaseModel]` | ✓        | Pydantic model defining the desired output shape. |
+
+## Return value
+
+`GenerateObjectResult` exposes:
+
+- `object`: The parsed Pydantic model instance
+- `raw_text`: Original text response (for debugging)
+- `usage`: Token usage statistics
+- `finish_reason`: Why the generation ended
+- `provider_metadata`: Provider-specific metadata
+
+## Examples
+
+### Basic object generation
+
+```python
+from ai_sdk import generate_object, openai
+from pydantic import BaseModel
+
+class User(BaseModel):
+    name: str
+    age: int
+    email: str
+
+model = openai("gpt-4o-mini")
+res = generate_object(
+    model=model,
+    schema=User,
+    prompt="Create a user profile for John Doe, age 30, with email john@example.com"
+)
+print(res.object)  # User(name='John Doe', age=30, email='john@example.com')
+```
+
+### With complex schemas
+
+```python
+from ai_sdk import generate_object, openai
+from pydantic import BaseModel
+from typing import List, Optional
+
+class Address(BaseModel):
+    street: str
+    city: str
+    zip_code: str
+
+class Person(BaseModel):
+    name: str
+    age: int
+    addresses: List[Address]
+    phone: Optional[str] = None
+
+model = openai("gpt-4o-mini")
+res = generate_object(
+    model=model,
+    schema=Person,
+    prompt="Create a person named Alice, age 25, with two addresses"
+)
+print(res.object)
+```
+
+### With system instructions
+
+```python
+from ai_sdk import generate_object, openai
+from pydantic import BaseModel
+
+class Recipe(BaseModel):
+    title: str
+    ingredients: List[str]
+    instructions: List[str]
+    prep_time: int
+
+model = openai("gpt-4o-mini")
+res = generate_object(
+    model=model,
+    schema=Recipe,
+    system="You are a helpful cooking assistant. Always provide accurate, detailed recipes.",
+    prompt="Create a recipe for chocolate chip cookies"
+)
+print(res.object)
+```
+
+### With custom parameters
+
+```python
+from ai_sdk import generate_object, openai
+from pydantic import BaseModel
+
+class Story(BaseModel):
+    title: str
+    characters: List[str]
+    plot: str
+    genre: str
+
+model = openai("gpt-4o-mini")
+res = generate_object(
+    model=model,
+    schema=Story,
+    prompt="Write a short story about space exploration",
+    temperature=0.7,
+    max_tokens=500
+)
+print(res.object)
+```
+
+## Error handling
+
+`generate_object` automatically retries when the model output doesn't match the schema:
+
+```python
+from ai_sdk import generate_object, openai
+from pydantic import BaseModel, ValidationError
+
+class Product(BaseModel):
+    name: str
+    price: float
+    category: str
+
+model = openai("gpt-4o-mini")
+
+try:
+    res = generate_object(
+        model=model,
+        schema=Product,
+        prompt="Create a product with invalid data"
+    )
+    print(res.object)
+except ValidationError as e:
+    print(f"Schema validation failed: {e}")
+```
+
+## Tool-calling with objects
+
+<Note>
+  See the dedicated <a href="/sdk/tool">Tool page</a> for a complete walkthrough.
+</Note>
+
+```python
+from ai_sdk import tool, generate_object, openai
+from pydantic import BaseModel
+
+class Calculation(BaseModel):
+    result: float
+    operation: str
+
+add = tool(
+    name="add",
+    description="Add two numbers.",
+    parameters={
+        "type": "object",
+        "properties": {"a": {"type": "number"}, "b": {"type": "number"}},
+        "required": ["a", "b"],
+    },
+    execute=lambda a, b: a + b,
+)
+
+model = openai("gpt-4o-mini")
+res = generate_object(
+    model=model,
+    schema=Calculation,
+    prompt="Calculate 15 + 27 and return the result as a structured object",
+    tools=[add],
+)
+print(res.object)  # Calculation(result=42.0, operation='addition')
+```
+
+---
+
+<Tip>
+  If the provider supports native structured output (OpenAI does via <code>response_format</code>)
+  `generate_object` uses it automatically and falls back to JSON-parsing otherwise – so your code
+  stays portable.
+</Tip>{" "}

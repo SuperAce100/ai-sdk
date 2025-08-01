@@ -1,0 +1,184 @@
+---
+title: "embed_many"
+description: "Embed multiple text values efficiently with automatic batching and retry logic."
+icon: "vector-square"
+---
+
+import { CodeGroup, Note, Warning, Tip } from "mintlify/components";
+
+## Overview
+
+`embed_many` is the primary embedding function for processing multiple text values efficiently. It provides automatic batching respecting the provider's `max_batch_size` limit, retry logic with exponential back-off, and unified return objects.
+
+## Basic usage
+
+```python embed_many.py
+from ai_sdk import embed_many, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+sentences = [
+    "The cat sat on the mat.",
+    "A dog was lying on the rug.",
+    "Paris is the capital of France.",
+]
+
+res = embed_many(model=model, values=sentences)
+print(len(res.embeddings))  # 3
+print(res.usage)  # Token usage statistics
+```
+
+## Parameters
+
+| Name          | Type              | Required | Description                                             |
+| ------------- | ----------------- | -------- | ------------------------------------------------------- |
+| `model`       | `EmbeddingModel`  | ✓        | Provider instance created via e.g. `openai.embedding()` |
+| `values`      | `List[str]`       | ✓        | List of texts to embed                                  |
+| `max_retries` | `int`             | 3        | Maximum number of retry attempts                        |
+| `**kwargs`    | provider-specific | –        | Forwarded verbatim to the underlying SDK                |
+
+## Return value
+
+`EmbedManyResult` exposes:
+
+- `embeddings`: List of embedding vectors (list of lists of floats)
+- `values`: The original input texts
+- `usage`: Token usage statistics (if available)
+- `provider_metadata`: Provider-specific metadata
+
+## Examples
+
+### Basic batch embedding
+
+```python
+from ai_sdk import embed_many, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+texts = [
+    "Machine learning is a subset of artificial intelligence.",
+    "Deep learning uses neural networks with multiple layers.",
+    "Natural language processing helps computers understand text.",
+    "Computer vision enables machines to interpret visual information."
+]
+
+result = embed_many(model=model, values=texts)
+print(f"Generated {len(result.embeddings)} embeddings")
+print(f"Each embedding has {len(result.embeddings[0])} dimensions")
+```
+
+### With custom retry settings
+
+```python
+from ai_sdk import embed_many, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+texts = [
+    "The weather is sunny today.",
+    "I love programming in Python.",
+    "Data science involves statistics and machine learning."
+]
+
+result = embed_many(
+    model=model,
+    values=texts,
+    max_retries=5  # More retries for reliability
+)
+print(f"Successfully embedded {len(result.embeddings)} texts")
+```
+
+### Large batch processing
+
+```python
+from ai_sdk import embed_many, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+# Large list of documents
+documents = [
+    f"Document {i}: This is sample content for document number {i}."
+    for i in range(100)
+]
+
+result = embed_many(model=model, values=documents)
+print(f"Processed {len(result.embeddings)} documents")
+print(f"Total tokens used: {result.usage.total_tokens}")
+```
+
+### Error handling
+
+```python
+from ai_sdk import embed_many, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+texts = [
+    "Valid text here.",
+    "",  # Empty text might cause issues
+    "Another valid text."
+]
+
+try:
+    result = embed_many(model=model, values=texts)
+    print(f"Successfully embedded {len(result.embeddings)} texts")
+except Exception as e:
+    print(f"Embedding failed: {e}")
+```
+
+### With custom parameters
+
+```python
+from ai_sdk import embed_many, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+texts = [
+    "Technical documentation about APIs.",
+    "User manual for software installation.",
+    "Tutorial on web development."
+]
+
+result = embed_many(
+    model=model,
+    values=texts,
+    encoding_format="float",  # OpenAI-specific parameter
+    dimensions=1536  # Specify embedding dimensions
+)
+print(f"Embeddings: {len(result.embeddings)}")
+```
+
+## Custom providers
+
+Implement the `EmbeddingModel` ABC to bring your own model:
+
+```python
+from ai_sdk.providers.embedding_model import EmbeddingModel
+
+class MyFastAPIBackend(EmbeddingModel):
+    max_batch_size = 128
+
+    def embed_many(self, values, **kwargs):
+        # HTTP POST → return dict with "embeddings" key
+        # Implementation here
+        pass
+
+# Now use it with embed_many
+model = MyFastAPIBackend()
+texts = ["Hello", "World", "Test"]
+result = embed_many(model=model, values=texts)
+print(f"Generated {len(result.embeddings)} embeddings")
+```
+
+## Performance considerations
+
+- **Batching**: `embed_many` automatically batches requests based on the provider's `max_batch_size`
+- **Retries**: Built-in exponential backoff retry logic for reliability
+- **Memory**: For very large datasets, consider processing in chunks
+- **Rate limits**: Respects provider rate limits automatically
+
+---
+
+<Tip>
+  Use <code>cosine_similarity(vec_a, vec_b)</code> for quick similarity checks between embeddings.
+</Tip>{" "}

@@ -1,0 +1,227 @@
+---
+title: "cosine_similarity"
+description: "Calculate cosine similarity between two embedding vectors for semantic similarity analysis."
+icon: "calculator"
+---
+
+import { CodeGroup, Note, Warning, Tip } from "mintlify/components";
+
+## Overview
+
+`cosine_similarity` is a utility function for calculating the cosine similarity between two embedding vectors. It's dependency-free and provides a quick way to measure semantic similarity between texts.
+
+## Basic usage
+
+```python cosine_similarity.py
+from ai_sdk import embed_many, cosine_similarity, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+sentences = [
+    "The cat sat on the mat.",
+    "A dog was lying on the rug.",
+    "Paris is the capital of France.",
+]
+
+res = embed_many(model=model, values=sentences)
+sim = cosine_similarity(res.embeddings[0], res.embeddings[1])
+print(sim)  # ~0.8 – sentences are semantically similar
+```
+
+## Parameters
+
+| Name    | Type          | Required | Description             |
+| ------- | ------------- | -------- | ----------------------- |
+| `vec_a` | `List[float]` | ✓        | First embedding vector  |
+| `vec_b` | `List[float]` | ✓        | Second embedding vector |
+
+## Return value
+
+Returns a `float` between -1 and 1:
+
+- **1.0**: Vectors are identical (perfect similarity)
+- **0.0**: Vectors are orthogonal (no similarity)
+- **-1.0**: Vectors are opposite (perfect dissimilarity)
+- **0.7-0.9**: High semantic similarity
+- **0.3-0.7**: Moderate similarity
+- **0.0-0.3**: Low similarity
+
+## Examples
+
+### Basic similarity calculation
+
+```python
+from ai_sdk import embed_many, cosine_similarity, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+texts = [
+    "Machine learning is a subset of AI.",
+    "Deep learning uses neural networks.",
+    "The weather is sunny today."
+]
+
+result = embed_many(model=model, values=texts)
+
+# Compare first two texts (both about AI/ML)
+sim_1_2 = cosine_similarity(result.embeddings[0], result.embeddings[1])
+print(f"Similarity between AI texts: {sim_1_2:.3f}")  # High similarity
+
+# Compare first and third texts (different topics)
+sim_1_3 = cosine_similarity(result.embeddings[0], result.embeddings[2])
+print(f"Similarity between AI and weather: {sim_1_3:.3f}")  # Lower similarity
+```
+
+### Finding most similar text
+
+```python
+from ai_sdk import embed_many, cosine_similarity, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+query = "What is artificial intelligence?"
+documents = [
+    "AI is the simulation of human intelligence in machines.",
+    "Machine learning is a subset of artificial intelligence.",
+    "The weather forecast predicts rain tomorrow.",
+    "Deep learning uses neural networks for pattern recognition."
+]
+
+# Embed query and documents
+all_texts = [query] + documents
+result = embed_many(model=model, values=all_texts)
+
+query_embedding = result.embeddings[0]
+document_embeddings = result.embeddings[1:]
+
+# Find most similar document
+similarities = []
+for i, doc_embedding in enumerate(document_embeddings):
+    sim = cosine_similarity(query_embedding, doc_embedding)
+    similarities.append((sim, documents[i]))
+
+# Sort by similarity (highest first)
+similarities.sort(reverse=True)
+
+print("Most similar documents:")
+for sim, doc in similarities:
+    print(f"{sim:.3f}: {doc}")
+```
+
+### Semantic search example
+
+```python
+from ai_sdk import embed_many, cosine_similarity, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+# Knowledge base
+knowledge_base = [
+    "Python is a programming language.",
+    "JavaScript is used for web development.",
+    "Machine learning involves training models on data.",
+    "Databases store and retrieve information.",
+    "APIs allow different software to communicate."
+]
+
+# Search query
+query = "How do I learn to code?"
+
+# Embed everything
+all_texts = [query] + knowledge_base
+result = embed_many(model=model, values=all_texts)
+
+query_embedding = result.embeddings[0]
+kb_embeddings = result.embeddings[1:]
+
+# Find top 3 most relevant documents
+similarities = []
+for i, kb_embedding in enumerate(kb_embeddings):
+    sim = cosine_similarity(query_embedding, kb_embedding)
+    similarities.append((sim, knowledge_base[i]))
+
+# Get top 3 results
+top_results = sorted(similarities, reverse=True)[:3]
+
+print("Top 3 relevant documents:")
+for i, (sim, doc) in enumerate(top_results, 1):
+    print(f"{i}. {sim:.3f}: {doc}")
+```
+
+### Comparing multiple vectors
+
+```python
+from ai_sdk import embed_many, cosine_similarity, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+texts = [
+    "The cat sat on the mat.",
+    "A dog was lying on the rug.",
+    "A feline rested on the carpet.",
+    "The weather is sunny today.",
+    "It's raining outside."
+]
+
+result = embed_many(model=model, values=texts)
+embeddings = result.embeddings
+
+# Compare all pairs
+print("Similarity matrix:")
+for i in range(len(embeddings)):
+    for j in range(len(embeddings)):
+        if i != j:
+            sim = cosine_similarity(embeddings[i], embeddings[j])
+            print(f"Text {i+1} vs Text {j+1}: {sim:.3f}")
+```
+
+### Error handling
+
+```python
+from ai_sdk import embed_many, cosine_similarity, openai
+
+model = openai.embedding("text-embedding-3-small")
+
+texts = ["Hello", "World"]
+result = embed_many(model=model, values=texts)
+
+try:
+    # Valid comparison
+    sim = cosine_similarity(result.embeddings[0], result.embeddings[1])
+    print(f"Similarity: {sim:.3f}")
+
+    # Invalid comparison (different dimensions)
+    invalid_vec = [0.1, 0.2, 0.3]  # 3 dimensions
+    sim = cosine_similarity(result.embeddings[0], invalid_vec)
+    print(f"Similarity: {sim:.3f}")
+
+except ValueError as e:
+    print(f"Error: {e}")
+```
+
+## Mathematical details
+
+Cosine similarity is calculated as:
+
+```
+cosine_similarity(A, B) = (A · B) / (||A|| × ||B||)
+```
+
+Where:
+
+- `A · B` is the dot product of vectors A and B
+- `||A||` and `||B||` are the magnitudes (L2 norms) of vectors A and B
+
+## Performance considerations
+
+- **Dependency-free**: No external libraries required
+- **Efficient**: O(n) time complexity where n is vector dimension
+- **Memory**: Low memory footprint
+- **Accuracy**: Provides reliable similarity scores for normalized embeddings
+
+---
+
+<Tip>
+  For production use with large-scale similarity calculations, consider using specialized libraries
+  like NumPy or FAISS for better performance.
+</Tip>{" "}
