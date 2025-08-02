@@ -1,7 +1,7 @@
 ---
 title: "Tool calling"
 description: "Turn any Python function into an LLM-callable tool with a single decorator."
-icon: "toolbox"
+icon: "wrench"
 ---
 
 import { Steps, Step, CodeGroup, Tip, Warning } from "mintlify/components";
@@ -74,7 +74,8 @@ res = generate_text(
 2. Model replies with a tool invocation: `{ "name": "add", "args": {"x": 123, "y": 456} }`.
 3. SDK executes `add(123, 456)` and appends the result `{ "result": 579 }` as a <code>tool</code> message.
 4. Model receives the updated conversation and returns the final answer.
-      </Step>
+
+</Step>
 </Steps>
 
 `GenerateTextResult.tool_calls` and `.tool_results` give you complete transparency for auditing / debugging.
