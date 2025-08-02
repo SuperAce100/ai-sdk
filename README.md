@@ -1,4 +1,4 @@
-# The Vercel AI SDK comes to Python!
+# The Vercel AI SDK comes to Python
 
 A pure Python re-implementation of Vercel's popular AI SDK for TypeScript. Zero-configuration functions that work consistently across providers with first-class streaming, tool-calling, and structured output support.
 
@@ -19,7 +19,7 @@ Python is the defacto language for AI. However, to actually get started with AI,
 
 Install via UV (Python package manager):
 
-```bash
+```bas
 uv add ai-sdk-python
 ```
 
@@ -314,7 +314,7 @@ class User(BaseModel):
     age: int
 
 res = generate_object(model=model, schema=User, prompt="Create a user")
-user = res.object  # Fully typed User instance
+user = res.object
 ```
 
 ### 4. **Built-in Streaming**
