@@ -1,53 +1,110 @@
 ---
-title: "Provider helpers"
-description: "Factory functions that create ready-to-use model instances."
+title: "Providers"
+description: "Factory functions that create ready-to-use model instances for different AI providers."
 icon: "server"
 ---
 
-import { Note, Tip, Warning, CodeGroup } from "mintlify/components";
+import { Note, Tip, Warning, CodeGroup, Card, CardGroup } from "mintlify/components";
 
 The SDK ships with zero hard dependencies on any specific vendor.
 You <em>install & import</em> only what you need.
 
----
+## Supported Providers
 
-## OpenAI
+<CardGroup cols={2}>
+<Card title="OpenAI" href="/sdk/providers/openai" icon="openai">
+  GPT models, embeddings, and function calling with full streaming support.
+</Card>
 
-### Chat / assistant models
+<Card title="Anthropic" href="/sdk/providers/anthropic" icon="anthropic">
+  Claude models with OpenAI-compatible API interface.
+</Card>
+</CardGroup>
 
-```python
-from ai_sdk import openai
-model = openai(
-    "gpt-4o-mini",
-    temperature=0.2,   # default kwargs attached to every call
-    user="my-app/123", # automatically sent for analytics
-)
-```
-
-The returned object implements the `LanguageModel` ABC and therefore works with <code>generate_text</code>, <code>stream_text</code> and friends.
-
-### Embedding models
+## Quick Start
 
 ```python
-embed_model = openai.embedding("text-embedding-3-small")
+from ai_sdk import openai, anthropic
+
+# OpenAI
+openai_model = openai("gpt-4o-mini")
+res = generate_text(model=openai_model, prompt="Hello!")
+
+# Anthropic
+anthropic_model = anthropic("claude-3-haiku-20240307")
+res = generate_text(model=anthropic_model, prompt="Hello!")
 ```
 
-> The helper is attached as an attribute (<code>openai.embedding</code>) to mimic the original TypeScript API.
+## Provider Features
 
----
+| Feature               | OpenAI          | Anthropic        |
+| --------------------- | --------------- | ---------------- |
+| **Text Generation**   | ✅ Full support | ✅ Full support  |
+| **Streaming**         | ✅ Real-time    | ✅ Real-time     |
+| **Tool Calling**      | ✅ Native       | ✅ Compatible    |
+| **Structured Output** | ✅ Native       | ✅ Compatible    |
+| **Embeddings**        | ✅ Full support | ❌ Not available |
+| **Function Calling**  | ✅ Native       | ✅ Compatible    |
 
-## Anthropic
+## Authentication
+
+### Environment Variables
+
+Set your API keys as environment variables:
+
+```bash
+# OpenAI
+export OPENAI_API_KEY="sk-..."
+
+# Anthropic
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+### Explicit API Keys
+
+Pass API keys directly to the provider functions:
 
 ```python
-from ai_sdk import anthropic
-claude = anthropic("claude-3-haiku-20240307")
+from ai_sdk import openai, anthropic
+
+# OpenAI with explicit key
+model = openai("gpt-4o-mini", api_key="sk-...")
+
+# Anthropic with explicit key
+model = anthropic("claude-3-haiku-20240307", api_key="sk-ant-...")
 ```
 
-Implementation uses the <code>openai</code> Python client under the hood and therefore supports the same keyword arguments. Set <code>ANTHROPIC_API_KEY</code> as an env var or pass <code>api_key</code> explicitly.
+## Common Parameters
 
----
+All providers support these common parameters:
 
-## Bring-your-own provider
+| Parameter           | Type    | Default | Description                               |
+| ------------------- | ------- | ------- | ----------------------------------------- |
+| `model`             | `str`   | -       | Model identifier (required)               |
+| `api_key`           | `str`   | `None`  | API key (uses env var if not provided)    |
+| `temperature`       | `float` | `1.0`   | Controls randomness (0.0 = deterministic) |
+| `max_tokens`        | `int`   | `None`  | Maximum tokens to generate                |
+| `top_p`             | `float` | `1.0`   | Nucleus sampling parameter                |
+| `frequency_penalty` | `float` | `0.0`   | Reduces repetition                        |
+| `presence_penalty`  | `float` | `0.0`   | Encourages new topics                     |
+
+## Provider-Specific Features
+
+### OpenAI
+
+- **Native structured output** with `response_format="json_object"`
+- **Function calling** with full tool support
+- **Embedding models** with automatic batching
+- **Vision models** with multimodal support
+
+### Anthropic
+
+- **OpenAI-compatible API** using compatibility layer
+- **Function calling** via OpenAI SDK
+- **Streaming support** with real-time deltas
+- **System prompts** and message-based conversations
+
+## Bring Your Own Provider
 
 Implement the <code>LanguageModel</code> or <code>EmbeddingModel</code> interface – only a handful of methods are required:
 
@@ -73,3 +130,86 @@ Pass an instance to <code>generate_text</code> and you instantly get the full SD
   We maintain **zero coupling** between helpers and providers, so community packages can live in
   separate repos.
 </Tip>
+
+## Error Handling
+
+All providers handle common errors gracefully:
+
+```python
+from ai_sdk import openai, generate_text
+
+try:
+    model = openai("gpt-4o-mini")
+    res = generate_text(model=model, prompt="Hello!")
+    print(res.text)
+except Exception as e:
+    print(f"Error: {e}")
+```
+
+Common error scenarios:
+
+- **Invalid API key** - Check your credentials
+- **Rate limiting** - Implement exponential backoff
+- **Model not found** - Verify model name
+- **Token limit exceeded** - Reduce input length
+
+## Best Practices
+
+### 1. **Use Environment Variables**
+
+Keep API keys secure:
+
+```python
+# Good
+model = openai("gpt-4o-mini")  # Uses OPENAI_API_KEY env var
+
+# Avoid
+model = openai("gpt-4o-mini", api_key="sk-...")  # Hardcoded key
+```
+
+### 2. **Set Default Parameters**
+
+Configure once, use everywhere:
+
+```python
+model = openai(
+    "gpt-4o-mini",
+    temperature=0.7,
+    max_tokens=1000,
+    user="my-app/123"  # For analytics
+)
+```
+
+### 3. **Handle Rate Limits**
+
+Implement retry logic for production:
+
+```python
+import time
+from ai_sdk import openai, generate_text
+
+def generate_with_retry(model, prompt, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return generate_text(model=model, prompt=prompt)
+        except Exception as e:
+            if "rate_limit" in str(e).lower() and attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # Exponential backoff
+                continue
+            raise
+```
+
+### 4. **Monitor Usage**
+
+Track token usage for cost management:
+
+```python
+from ai_sdk import openai, generate_text
+
+model = openai("gpt-4o-mini")
+res = generate_text(model=model, prompt="Hello!")
+
+if res.usage:
+    print(f"Tokens used: {res.usage.total_tokens}")
+    print(f"Cost: ${res.usage.total_tokens * 0.00001:.4f}")  # Approximate
+```

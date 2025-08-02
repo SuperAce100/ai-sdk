@@ -50,7 +50,7 @@
           },
           {
             "group": "Providers",
-            "pages": ["sdk/providers"]
+            "pages": ["sdk/providers", "sdk/providers/openai", "sdk/providers/anthropic"]
           },
           {
             "group": "Types",
@@ -91,9 +91,8 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/AsanshayG",
+      "github": "https://github.com/python-ai-sdk/sdk"
     }
   }
 }

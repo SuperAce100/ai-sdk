@@ -1,0 +1,467 @@
+---
+title: "OpenAI Provider"
+description: "Full OpenAI integration with GPT models, embeddings, function calling, and structured output."
+icon: "openai"
+---
+
+import { Note, Tip, Warning, CodeGroup, Steps, Step } from "mintlify/components";
+
+## Overview
+
+The OpenAI provider offers comprehensive support for all OpenAI services including GPT models, embeddings, function calling, and structured output. It's the most feature-complete provider in the SDK.
+
+## Quick Start
+
+```python
+from ai_sdk import openai, generate_text
+
+model = openai("gpt-4o-mini")
+res = generate_text(model=model, prompt="Hello, world!")
+print(res.text)
+```
+
+## Available Models
+
+### Chat Models
+
+| Model           | Description           | Max Tokens | Cost                           |
+| --------------- | --------------------- | ---------- | ------------------------------ |
+| `gpt-4o`        | Latest GPT-4 model    | 128k       | $5/1M input, $15/1M output     |
+| `gpt-4o-mini`   | Faster, cheaper GPT-4 | 128k       | $0.15/1M input, $0.6/1M output |
+| `gpt-4-turbo`   | Previous GPT-4 Turbo  | 128k       | $10/1M input, $30/1M output    |
+| `gpt-3.5-turbo` | Fast, cost-effective  | 16k        | $0.5/1M input, $1.5/1M output  |
+
+### Embedding Models
+
+| Model                    | Dimensions | Cost              |
+| ------------------------ | ---------- | ----------------- |
+| `text-embedding-3-large` | 3072       | $0.13/1M tokens   |
+| `text-embedding-3-small` | 1536       | $0.02/1M tokens   |
+| `text-embedding-ada-002` | 1536       | $0.0001/1K tokens |
+
+## Basic Usage
+
+### Text Generation
+
+```python
+from ai_sdk import openai, generate_text
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="Write a haiku about programming"
+)
+print(res.text)
+```
+
+### Streaming
+
+```python
+import asyncio
+from ai_sdk import openai, stream_text
+
+async def main():
+    model = openai("gpt-4o-mini")
+    stream_res = stream_text(
+        model=model,
+        prompt="Tell me a story about a robot"
+    )
+
+    async for chunk in stream_res.text_stream:
+        print(chunk, end="", flush=True)
+
+asyncio.run(main())
+```
+
+### With System Instructions
+
+```python
+from ai_sdk import openai, generate_text
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    system="You are a helpful coding assistant. Always provide clear, concise explanations.",
+    prompt="Explain what recursion is in simple terms"
+)
+print(res.text)
+```
+
+## Advanced Features
+
+### Structured Output
+
+OpenAI supports native structured output with `response_format="json_object"`:
+
+```python
+from ai_sdk import openai, generate_object
+from pydantic import BaseModel
+
+class User(BaseModel):
+    name: str
+    age: int
+    email: str
+
+model = openai("gpt-4o-mini")
+res = generate_object(
+    model=model,
+    schema=User,
+    prompt="Create a user profile for John Doe, age 30"
+)
+print(res.object)  # User(name='John Doe', age=30, email='john@example.com')
+```
+
+### Function Calling
+
+```python
+from ai_sdk import openai, generate_text, tool
+
+def get_weather(city: str) -> str:
+    """Get weather for a city."""
+    weather_data = {
+        "New York": "72°F, Sunny",
+        "London": "55°F, Rainy"
+    }
+    return weather_data.get(city, "Weather data not available")
+
+weather_tool = tool(
+    name="get_weather",
+    description="Get current weather for a city",
+    parameters={
+        "type": "object",
+        "properties": {
+            "city": {"type": "string", "description": "City name"}
+        },
+        "required": ["city"]
+    },
+    execute=get_weather
+)
+
+model = openai("gpt-4o-mini")
+res = generate_text(
+    model=model,
+    prompt="What's the weather like in New York?",
+    tools=[weather_tool]
+)
+print(res.text)
+```
+
+### Embeddings
+
+```python
+from ai_sdk import openai, embed_many, cosine_similarity
+
+# Create embedding model
+embed_model = openai.embedding("text-embedding-3-small")
+
+# Embed multiple texts
+texts = [
+    "The cat sat on the mat.",
+    "A dog was lying on the rug.",
+    "Python is a programming language."
+]
+
+result = embed_many(model=embed_model, values=texts)
+
+# Calculate similarity
+similarity = cosine_similarity(result.embeddings[0], result.embeddings[1])
+print(f"Similarity: {similarity:.3f}")
+```
+
+### Vision Models
+
+```python
+from ai_sdk import openai, generate_text
+from ai_sdk.types import CoreUserMessage, ImagePart
+
+model = openai("gpt-4o")  # Vision-capable model
+
+# Create message with image
+message = CoreUserMessage(content=[
+    ImagePart(image_url="https://example.com/image.jpg"),
+    "Describe this image in detail."
+])
+
+res = generate_text(model=model, messages=[message])
+print(res.text)
+```
+
+## Configuration
+
+### API Key
+
+Set your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+Or pass it directly:
+
+```python
+model = openai("gpt-4o-mini", api_key="sk-...")
+```
+
+### Default Parameters
+
+Configure default parameters for all requests:
+
+```python
+model = openai(
+    "gpt-4o-mini",
+    temperature=0.7,
+    max_tokens=1000,
+    top_p=0.9,
+    frequency_penalty=0.1,
+    presence_penalty=0.1,
+    user="my-app/123"  # For analytics
+)
+```
+
+### Organization
+
+For team accounts:
+
+```python
+model = openai(
+    "gpt-4o-mini",
+    organization="org-..."  # Your organization ID
+)
+```
+
+## Parameters
+
+### Common Parameters
+
+| Parameter      | Type  | Default                     | Description                           |
+| -------------- | ----- | --------------------------- | ------------------------------------- |
+| `model`        | `str` | -                           | Model identifier (required)           |
+| `api_key`      | `str` | `None`                      | API key (uses OPENAI_API_KEY env var) |
+| `organization` | `str` | `None`                      | Organization ID                       |
+| `base_url`     | `str` | `https://api.openai.com/v1` | API base URL                          |
+
+### Generation Parameters
+
+| Parameter           | Type    | Default | Description                               |
+| ------------------- | ------- | ------- | ----------------------------------------- |
+| `temperature`       | `float` | `1.0`   | Controls randomness (0.0 = deterministic) |
+| `max_tokens`        | `int`   | `None`  | Maximum tokens to generate                |
+| `top_p`             | `float` | `1.0`   | Nucleus sampling parameter                |
+| `frequency_penalty` | `float` | `0.0`   | Reduces repetition                        |
+| `presence_penalty`  | `float` | `0.0`   | Encourages new topics                     |
+| `response_format`   | `str`   | `None`  | `"json_object"` for structured output     |
+| `seed`              | `int`   | `None`  | For reproducible results                  |
+
+### Embedding Parameters
+
+| Parameter         | Type  | Default   | Description                        |
+| ----------------- | ----- | --------- | ---------------------------------- |
+| `encoding_format` | `str` | `"float"` | `"float"` or `"base64"`            |
+| `dimensions`      | `int` | `None`    | Output dimensions (model-specific) |
+
+## Error Handling
+
+### Rate Limiting
+
+```python
+import time
+from ai_sdk import openai, generate_text
+
+def generate_with_retry(prompt, max_retries=3):
+    model = openai("gpt-4o-mini")
+
+    for attempt in range(max_retries):
+        try:
+            return generate_text(model=model, prompt=prompt)
+        except Exception as e:
+            if "rate_limit" in str(e).lower() and attempt < max_retries - 1:
+                wait_time = 2 ** attempt
+                print(f"Rate limited, waiting {wait_time}s...")
+                time.sleep(wait_time)
+                continue
+            raise
+
+res = generate_with_retry("Hello!")
+```
+
+### Token Limits
+
+```python
+from ai_sdk import openai, generate_text
+
+def truncate_prompt(prompt, max_tokens=4000):
+    """Truncate prompt to fit within token limits."""
+    # Rough estimation: 1 token ≈ 4 characters
+    max_chars = max_tokens * 4
+    if len(prompt) > max_chars:
+        return prompt[:max_chars] + "..."
+    return prompt
+
+model = openai("gpt-4o-mini")
+long_prompt = "A very long prompt..." * 1000
+truncated = truncate_prompt(long_prompt)
+res = generate_text(model=model, prompt=truncated)
+```
+
+## Best Practices
+
+### 1. **Model Selection**
+
+Choose the right model for your use case:
+
+```python
+# For simple tasks - fast and cheap
+model = openai("gpt-3.5-turbo")
+
+# For complex reasoning - powerful but expensive
+model = openai("gpt-4o")
+
+# For structured output - native JSON support
+model = openai("gpt-4o-mini")
+```
+
+### 2. **Cost Optimization**
+
+Monitor and optimize costs:
+
+```python
+from ai_sdk import openai, generate_text
+
+model = openai("gpt-4o-mini")
+res = generate_text(model=model, prompt="Hello!")
+
+if res.usage:
+    input_cost = res.usage.prompt_tokens * 0.00000015  # $0.15/1M tokens
+    output_cost = res.usage.completion_tokens * 0.0000006  # $0.6/1M tokens
+    total_cost = input_cost + output_cost
+    print(f"Cost: ${total_cost:.6f}")
+```
+
+### 3. **Prompt Engineering**
+
+Use clear, specific prompts:
+
+```python
+# Good
+prompt = """
+You are a helpful coding assistant. The user will ask you questions about Python programming.
+
+Please provide:
+1. A clear explanation
+2. A code example
+3. Best practices to follow
+
+User question: {user_question}
+"""
+
+# Avoid
+prompt = "Help me with Python"
+```
+
+### 4. **Streaming for Long Responses**
+
+Use streaming for better user experience:
+
+```python
+import asyncio
+from ai_sdk import openai, stream_text
+
+async def generate_long_response():
+    model = openai("gpt-4o-mini")
+    stream_res = stream_text(
+        model=model,
+        prompt="Write a detailed tutorial about Python decorators"
+    )
+
+    print("Generating response...")
+    async for chunk in stream_res.text_stream:
+        print(chunk, end="", flush=True)
+    print("\nDone!")
+
+asyncio.run(generate_long_response())
+```
+
+### 5. **Structured Output for Reliability**
+
+Use structured output for consistent results:
+
+```python
+from ai_sdk import openai, generate_object
+from pydantic import BaseModel
+from typing import List
+
+class CodeReview(BaseModel):
+    issues: List[str]
+    suggestions: List[str]
+    score: int
+
+model = openai("gpt-4o-mini")
+res = generate_object(
+    model=model,
+    schema=CodeReview,
+    prompt="Review this Python code: def hello(): print('world')"
+)
+
+review = res.object
+print(f"Score: {review.score}/10")
+print(f"Issues: {review.issues}")
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Invalid API Key**
+
+   ```
+   Error: Invalid API key
+   ```
+
+   - Check your API key is correct
+   - Ensure you have sufficient credits
+
+2. **Model Not Found**
+
+   ```
+   Error: The model `gpt-4o-mini` does not exist
+   ```
+
+   - Verify model name spelling
+   - Check if model is available in your region
+
+3. **Rate Limiting**
+
+   ```
+   Error: Rate limit exceeded
+   ```
+
+   - Implement exponential backoff
+   - Consider upgrading your plan
+
+4. **Token Limit Exceeded**
+   ```
+   Error: Request too large
+   ```
+   - Reduce input length
+   - Use a model with higher token limits
+
+### Debug Mode
+
+Enable detailed logging:
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+from ai_sdk import openai, generate_text
+model = openai("gpt-4o-mini")
+res = generate_text(model=model, prompt="Hello!")
+```
+
+---
+
+<Tip>
+  OpenAI models are constantly being updated. Check the [OpenAI API
+  documentation](https://platform.openai.com/docs/models) for the latest model availability and
+  pricing.
+</Tip>{" "}

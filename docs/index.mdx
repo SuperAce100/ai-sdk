@@ -1,97 +1,269 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "AI SDK Python"
+description: "Zero-configuration functions that work consistently across providers with first-class streaming, tool-calling, and structured output support."
 ---
 
-## Setting up
+import { Card, CardGroup, Note, Tip, Steps, Step, CodeGroup, Check } from "mintlify/components";
 
-Get your documentation site up and running in minutes.
+## Welcome to AI SDK Python
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
+A pure Python re-implementation of Vercel's popular AI SDK for TypeScript. Get started with AI in minutes, not hours.
+
+<Card title="Quick Start" icon="rocket" href="/sdk/introduction" horizontal>
+  Get up and running in under 5 minutes with our quick start guide.
 </Card>
 
-## Make it yours
+## Why AI SDK Python?
 
-Design a docs site that looks great and empowers your users.
+Python is the defacto language for AI. However, to actually get started with AI, you'll need to 1. use a bloated external framework and install a bunch of dependencies, or 2. use an incredibly confusing API client (to simply call an LLM, you need `client.chat.completions.create(**kwargs).result.choices[0].message.content`).
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+### Features
 
-## Create beautiful pages
+- **Zero-configuration functions** that work consistently across providers
+- **First-class streaming** & **tool-calling** support
+- **Strong Pydantic types** throughout - you know exactly what you're getting
+- **Strict structured-output** generation and streaming via Pydantic models
+- **Provider-agnostic embeddings** with built-in batching & retry logic
+- **Tiny dependency footprint** - no bloated external frameworks
 
-Everything you need to create world-class documentation.
+## Quick Examples
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+### Text Generation
 
-## Need inspiration?
+```python
+from ai_sdk import generate_text, openai
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
+model = openai("gpt-4o-mini")
+res = generate_text(model=model, prompt="Tell me a haiku about Python")
+print(res.text)
+```
+
+### Streaming
+
+```python
+import asyncio
+from ai_sdk import stream_text, openai
+
+async def main():
+    model = openai("gpt-4o-mini")
+    stream_res = stream_text(model=model, prompt="Write a story")
+
+    async for chunk in stream_res.text_stream:
+        print(chunk, end="", flush=True)
+
+asyncio.run(main())
+```
+
+### Structured Output
+
+```python
+from ai_sdk import generate_object, openai
+from pydantic import BaseModel
+
+class Person(BaseModel):
+    name: str
+    age: int
+
+model = openai("gpt-4o-mini")
+res = generate_object(
+    model=model,
+    schema=Person,
+    prompt="Create a person named Alice, age 30"
+)
+print(res.object)  # Person(name='Alice', age=30)
+```
+
+## Core Functions
+
+<CardGroup cols={2}>
+<Card title="Text Generation" href="/sdk/generate_text" icon="message-circle">
+  Generate text synchronously with `generate_text` or stream in real-time with `stream_text`.
 </Card>
+
+<Card title="Object Generation" href="/sdk/generate_object" icon="boxes-packing">
+  Parse model output directly into your own Pydantic models with automatic validation.
+</Card>
+
+<Card title="Embeddings" href="/sdk/embed" icon="vector-square">
+  Create vector embeddings with `embed` and `embed_many`, plus semantic similarity with
+  `cosine_similarity`.
+</Card>
+
+<Card title="Tools" href="/sdk/tool" icon="toolbox">
+  Turn any Python function into an LLM-callable tool with a single decorator.
+</Card>
+</CardGroup>
+
+## Supported Providers
+
+<CardGroup cols={2}>
+<Card title="OpenAI" href="/sdk/providers/openai" icon="openai">
+  GPT models, embeddings, and function calling with full streaming support.
+</Card>
+
+<Card title="Anthropic" href="/sdk/providers/anthropic" icon="anthropic">
+  Claude models with OpenAI-compatible API interface.
+</Card>
+</CardGroup>
+
+## Installation
+
+Install via UV (Python package manager):
+
+```bash
+uv add ai-sdk-python
+```
+
+Or with pip:
+
+```bash
+pip install ai-sdk-python
+```
+
+That's it - no extra build steps or config files.
+
+## Key Benefits
+
+### 1. **Zero Configuration**
+
+No complex setup - just import and use:
+
+```python
+from ai_sdk import generate_text, openai
+res = generate_text(model=openai("gpt-4o-mini"), prompt="Hello!")
+```
+
+### 2. **Provider Agnostic**
+
+Swap providers without changing code:
+
+```python
+# Works with any provider
+model = openai("gpt-4o-mini")  # or anthropic("claude-3-haiku-20240307")
+res = generate_text(model=model, prompt="Hello!")
+```
+
+### 3. **Strong Typing**
+
+Full Pydantic integration for type safety:
+
+```python
+from pydantic import BaseModel
+from ai_sdk import generate_object
+
+class User(BaseModel):
+    name: str
+    age: int
+
+res = generate_object(model=model, schema=User, prompt="Create a user")
+user = res.object  # Fully typed User instance
+```
+
+### 4. **Built-in Streaming**
+
+Real-time text generation:
+
+```python
+async for chunk in stream_text(model=model, prompt="Tell a story").text_stream:
+    print(chunk, end="", flush=True)
+```
+
+### 5. **Automatic Tool Calling**
+
+Define tools once, use everywhere:
+
+```python
+add = tool(name="add", description="Add numbers",
+           parameters={...}, execute=lambda x, y: x + y)
+
+res = generate_text(model=model, prompt="What's 2+2?", tools=[add])
+```
+
+## Documentation Sections
+
+### Getting Started
+
+<CardGroup cols={2}>
+<Card title="Introduction" href="/sdk/introduction" icon="book">
+  Learn about the SDK's philosophy and core concepts.
+</Card>
+
+<Card title="Concepts" href="/sdk/concepts" icon="lightbulb">
+  Understand the fundamental concepts and patterns.
+</Card>
+</CardGroup>
+
+### Examples & Guides
+
+<CardGroup cols={2}>
+<Card title="Basic Text" href="/examples/basic-text" icon="message-circle">
+  Simple text generation examples.
+</Card>
+
+<Card title="Streaming" href="/examples/streaming" icon="radio">
+  Real-time streaming examples.
+</Card>
+
+<Card title="Structured Output" href="/examples/structured-output" icon="boxes-packing">
+  Working with Pydantic models.
+</Card>
+
+<Card title="Tool Agent" href="/examples/tool-agent" icon="robot">
+  Building agents with tool calling.
+</Card>
+
+<Card title="Embeddings Search" href="/examples/embeddings-search" icon="search">
+  Semantic search with embeddings.
+</Card>
+</CardGroup>
+
+### Reference
+
+<CardGroup cols={2}>
+<Card title="Text Generation" href="/sdk/generate_text" icon="message-circle">
+  `generate_text` and `stream_text` functions.
+</Card>
+
+<Card title="Object Generation" href="/sdk/generate_object" icon="boxes-packing">
+  `generate_object` and `stream_object` functions.
+</Card>
+
+<Card title="Embeddings" href="/sdk/embed" icon="vector-square">
+  `embed`, `embed_many`, and `cosine_similarity` functions.
+</Card>
+
+<Card title="Tools" href="/sdk/tool" icon="toolbox">
+  `tool` function for LLM-callable functions.
+</Card>
+
+<Card title="Providers" href="/sdk/providers" icon="server">
+  Supported AI providers and their features.
+</Card>
+
+<Card title="Types" href="/sdk/types" icon="code">
+  Type definitions and schemas.
+</Card>
+</CardGroup>
+
+## Community & Support
+
+<CardGroup cols={2}>
+<Card title="GitHub" href="https://github.com/python-ai-sdk/sdk" icon="github">
+  View source code, report issues, and contribute.
+</Card>
+
+<Card title="PyPI" href="https://pypi.org/project/ai-sdk-python/" icon="python">
+  Install the package from PyPI.
+</Card>
+
+<Card title="Support" href="mailto:asanshay@bharatgupta.com" icon="envelope">
+  Get help with implementation questions.
+</Card>
+</CardGroup>
+
+---
+
+<Tip>
+  The AI SDK Python is designed to be simple yet powerful. Start with the basics and gradually
+  explore advanced features like tool calling and structured output.
+</Tip>
