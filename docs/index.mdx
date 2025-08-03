@@ -1,5 +1,5 @@
 ---
-title: "Overview"
+title: "The Python AI SDK"
 description: "Zero-configuration functions that work consistently across providers with first-class streaming, tool-calling, and structured output support."
 ---
 
@@ -15,15 +15,15 @@ import {
   Icon,
 } from "mintlify/components";
 
-## Welcome to AI SDK Python
+## Welcome to the Python AI SDK
 
 A pure Python re-implementation of Vercel's popular AI SDK for TypeScript. Get started with AI in minutes, not hours.
 
-<Card title="Quick Start" icon="zap" href="/sdk/introduction" horizontal>
+<Card title="Quick Start" icon="rocket" href="/sdk/introduction" horizontal>
   Get up and running in under 5 minutes with our quick start guide.
 </Card>
 
-## Why AI SDK Python?
+## Why the Python AI SDK?
 
 Python is the defacto language for AI. However, to actually get started with AI, you'll need to 1. use a bloated external framework and install a bunch of dependencies, or 2. use an incredibly confusing API client (to simply call an LLM, you need `client.chat.completions.create(**kwargs).result.choices[0].message.content`).
 
@@ -86,20 +86,20 @@ print(res.object)  # Person(name='Alice', age=30)
 ## Core Functions
 
 <CardGroup cols={2}>
-<Card title="Text Generation" href="/sdk/generate_text" icon="message-square">
+<Card title="Text Generation" href="/sdk/generate_text" icon="message">
   Generate text synchronously with `generate_text` or stream in real-time with `stream_text`.
 </Card>
 
-<Card title="Object Generation" href="/sdk/generate_object" icon="package">
+<Card title="Object Generation" href="/sdk/generate_object" icon="brackets-curly">
   Parse model output directly into your own Pydantic models with automatic validation.
 </Card>
 
-<Card title="Embeddings" href="/sdk/embed" icon="database">
+<Card title="Embeddings" href="/sdk/embed" icon="vector-circle">
   Create vector embeddings with `embed` and `embed_many`, plus semantic similarity with
   `cosine_similarity`.
 </Card>
 
-<Card title="Tools" href="/sdk/tool" icon="wrench">
+<Card title="Tools" href="/sdk/tool" icon="hammer">
   Turn any Python function into an LLM-callable tool with a single decorator.
 </Card>
 </CardGroup>
@@ -206,23 +206,23 @@ res = generate_text(model=model, prompt="What's 2+2?", tools=[add])
 ### Examples & Guides
 
 <CardGroup cols={2}>
-<Card title="Basic Text" href="/examples/basic-text" icon="message-square">
+<Card title="Basic Text" href="/examples/basic-text" icon="message">
   Simple text generation examples.
 </Card>
 
-<Card title="Streaming" href="/examples/streaming" icon="radio">
+<Card title="Streaming" href="/examples/streaming" icon="message-dots">
   Real-time streaming examples.
 </Card>
 
-<Card title="Structured Output" href="/examples/structured-output" icon="package">
+<Card title="Structured Output" href="/examples/structured-output" icon="brackets-curly">
   Working with Pydantic models.
 </Card>
 
-<Card title="Tool Agent" href="/examples/tool-agent" icon="bot">
+<Card title="Tool Agent" href="/examples/tool-agent" icon="robot">
   Building agents with tool calling.
 </Card>
 
-<Card title="Embeddings Search" href="/examples/embeddings-search" icon="search">
+<Card title="Embeddings Search" href="/examples/embeddings-search" icon="magnifying-glass">
   Semantic search with embeddings.
 </Card>
 </CardGroup>
@@ -230,27 +230,27 @@ res = generate_text(model=model, prompt="What's 2+2?", tools=[add])
 ### Reference
 
 <CardGroup cols={2}>
-<Card title="Text Generation" href="/sdk/generate_text" icon="message-square">
+<Card title="Text Generation" href="/sdk/generate_text" icon="message">
   `generate_text` and `stream_text` functions.
 </Card>
 
-<Card title="Object Generation" href="/sdk/generate_object" icon="package">
+<Card title="Object Generation" href="/sdk/generate_object" icon="brackets-curly">
   `generate_object` and `stream_object` functions.
 </Card>
 
-<Card title="Embeddings" href="/sdk/embed" icon="database">
+<Card title="Embeddings" href="/sdk/embed" icon="vector-circle">
   `embed`, `embed_many`, and `cosine_similarity` functions.
 </Card>
 
-<Card title="Tools" href="/sdk/tool" icon="wrench">
+<Card title="Tools" href="/sdk/tool" icon="hammer">
   `tool` function for LLM-callable functions.
 </Card>
 
-<Card title="Providers" href="/sdk/providers" icon="server">
+<Card title="Providers" href="/sdk/providers" icon="dollar-sign">
   Supported AI providers and their features.
 </Card>
 
-<Card title="Types" href="/sdk/types" icon="code">
+<Card title="Types" href="/sdk/types" icon="brackets-curly">
   Type definitions and schemas.
 </Card>
 </CardGroup>
@@ -262,11 +262,11 @@ res = generate_text(model=model, prompt="What's 2+2?", tools=[add])
   View source code, report issues, and contribute.
 </Card>
 
-<Card title="PyPI" href="https://pypi.org/project/ai-sdk-python/" icon="package">
+<Card title="PyPI" href="https://pypi.org/project/ai-sdk-python/" icon="python">
   Install the package from PyPI.
 </Card>
 
-<Card title="Support" href="mailto:asanshay@bharatgupta.com" icon="mail">
+<Card title="Support" href="mailto:asanshay@bharatgupta.com" icon="envelope">
   Get help with implementation questions.
 </Card>
 </CardGroup>
@@ -274,6 +274,6 @@ res = generate_text(model=model, prompt="What's 2+2?", tools=[add])
 ---
 
 <Tip>
-  The AI SDK Python is designed to be simple yet powerful. Start with the basics and gradually
+  The Python AI SDK is designed to be simple yet powerful. Start with the basics and gradually
   explore advanced features like tool calling and structured output.
 </Tip>
