@@ -27,7 +27,7 @@ You <em>install & import</em> only what you need.
 from ai_sdk import openai, anthropic
 
 # OpenAI
-openai_model = openai("gpt-4o-mini")
+openai_model = openai("gpt-4.1-mini")
 res = generate_text(model=openai_model, prompt="Hello!")
 
 # Anthropic
@@ -68,7 +68,7 @@ Pass API keys directly to the provider functions:
 from ai_sdk import openai, anthropic
 
 # OpenAI with explicit key
-model = openai("gpt-4o-mini", api_key="sk-...")
+model = openai("gpt-4.1-mini", api_key="sk-...")
 
 # Anthropic with explicit key
 model = anthropic("claude-3-haiku-20240307", api_key="sk-ant-...")
@@ -139,7 +139,7 @@ All providers handle common errors gracefully:
 from ai_sdk import openai, generate_text
 
 try:
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     res = generate_text(model=model, prompt="Hello!")
     print(res.text)
 except Exception as e:
@@ -161,10 +161,10 @@ Keep API keys secure:
 
 ```python
 # Good
-model = openai("gpt-4o-mini")  # Uses OPENAI_API_KEY env var
+model = openai("gpt-4.1-mini")  # Uses OPENAI_API_KEY env var
 
 # Avoid
-model = openai("gpt-4o-mini", api_key="sk-...")  # Hardcoded key
+model = openai("gpt-4.1-mini", api_key="sk-...")  # Hardcoded key
 ```
 
 ### 2. **Set Default Parameters**
@@ -173,7 +173,7 @@ Configure once, use everywhere:
 
 ```python
 model = openai(
-    "gpt-4o-mini",
+    "gpt-4.1-mini",
     temperature=0.7,
     max_tokens=1000,
     user="my-app/123"  # For analytics
@@ -206,7 +206,7 @@ Track token usage for cost management:
 ```python
 from ai_sdk import openai, generate_text
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(model=model, prompt="Hello!")
 
 if res.usage:

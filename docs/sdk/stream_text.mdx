@@ -17,7 +17,7 @@ import { Note, Tip, Warning, Steps, Step, CodeGroup, Check } from "mintlify/comp
 <CodeGroup>
 ```python Streaming example
 from ai_sdk import stream_text, openai
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 stream_res = stream_text(
     model=model,
     prompt="Write an epic poem about the sea",
@@ -72,7 +72,7 @@ import asyncio
 from ai_sdk import stream_text, openai
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     stream_res = stream_text(
         model=model,
         prompt="Write a short story about a robot learning to paint"
@@ -93,7 +93,7 @@ import asyncio
 from ai_sdk import stream_text, openai
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
 
     def on_chunk(chunk):
         print(f"Chunk: {chunk}")
@@ -126,7 +126,7 @@ import asyncio
 from ai_sdk import stream_text, openai
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     stream_res = stream_text(
         model=model,
         system="You are a helpful teacher. Explain complex topics in simple terms.",
@@ -146,7 +146,7 @@ import asyncio
 from ai_sdk import stream_text, openai
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     stream_res = stream_text(
         model=model,
         prompt="Write a creative poem",
@@ -182,7 +182,7 @@ async def main():
         execute=lambda a, b: a + b,
     )
 
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     stream_res = stream_text(
         model=model,
         prompt="What is 15 + 27?",

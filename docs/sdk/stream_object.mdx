@@ -24,7 +24,7 @@ class Weather(BaseModel):
     temperature_c: float
 
 result = stream_object(
-    model=openai("gpt-4o-mini"),
+    model=openai("gpt-4.1-mini"),
     schema=Weather,
     prompt="Report the current temperature in Berlin as JSON.",
 )
@@ -78,7 +78,7 @@ class Story(BaseModel):
     plot: str
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     result = stream_object(
         model=model,
         schema=Story,
@@ -109,7 +109,7 @@ class Recipe(BaseModel):
     instructions: List[str]
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
 
     def on_partial(obj):
         print(f"Partial object: {obj}")
@@ -144,7 +144,7 @@ class Product(BaseModel):
     category: str
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     result = stream_object(
         model=model,
         schema=Product,
@@ -174,7 +174,7 @@ class Poem(BaseModel):
     theme: str
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     result = stream_object(
         model=model,
         schema=Poem,
@@ -216,7 +216,7 @@ class Person(BaseModel):
     contact: Contact
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     result = stream_object(
         model=model,
         schema=Person,
@@ -246,7 +246,7 @@ class User(BaseModel):
     age: int
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
 
     try:
         result = stream_object(
@@ -295,7 +295,7 @@ add = tool(
 )
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     result = stream_object(
         model=model,
         schema=Calculation,

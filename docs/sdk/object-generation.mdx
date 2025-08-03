@@ -25,7 +25,7 @@ id: int
 title: str
 done: bool = False
 
-model = openai("gpt-4o-mini", temperature=0)
+model = openai("gpt-4.1-mini", temperature=0)
 
 res = generate_object(
 model=model,
@@ -65,7 +65,7 @@ class Weather(BaseModel):
     temperature_c: float
 
 result = stream_object(
-    model=openai("gpt-4o-mini"),
+    model=openai("gpt-4.1-mini"),
     schema=Weather,
     prompt="Report the current temperature in Berlin as JSON.",
 )

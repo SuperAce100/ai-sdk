@@ -70,7 +70,7 @@ add = tool(
     execute=lambda x, y: x + y,
 )
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(
     model=model,
     prompt="What is 123 + 456?",
@@ -111,7 +111,7 @@ weather_tool = tool(
     execute=get_weather
 )
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(
     model=model,
     prompt="What's the weather like in New York?",
@@ -157,7 +157,7 @@ db_tool = tool(
     execute=query_database
 )
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(
     model=model,
     prompt="Show me all user names from the database",
@@ -221,7 +221,7 @@ file_tools = [
     )
 ]
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(
     model=model,
     prompt="List files in the current directory and read the README file",
@@ -260,7 +260,7 @@ fetch_tool = tool(
 )
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     res = generate_text(
         model=model,
         prompt="Fetch data from https://api.example.com/data",
@@ -294,7 +294,7 @@ calculator = tool(
     execute=lambda expr: eval(expr)  # Note: eval is unsafe in production
 )
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(
     model=model,
     prompt="Calculate (15 * 3) + 7",
@@ -326,7 +326,7 @@ search_tool = tool(
 )
 
 async def main():
-    model = openai("gpt-4o-mini")
+    model = openai("gpt-4.1-mini")
     stream_res = stream_text(
         model=model,
         prompt="Search for information about Python programming",
@@ -360,7 +360,7 @@ add = tool(
     execute=lambda a, b: a + b,
 )
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(
     model=model,
     prompt="What is 21 + 21?",

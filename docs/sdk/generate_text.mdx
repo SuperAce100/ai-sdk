@@ -15,7 +15,7 @@ import { Note, Tip, Warning, Steps, Step, CodeGroup, Check } from "mintlify/comp
 ```python generate_text.py
 from ai_sdk import generate_text, openai
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(model=model, prompt="Say hi to the world in one sentence")
 print(res.text) # "Hello, world – great to see you!"
 print(res.usage) # TokenUsage(prompt_tokens=4, completion_tokens=9, ...)
@@ -51,7 +51,7 @@ print(res.provider_metadata)
 ```python
 from ai_sdk import generate_text, openai
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(
     model=model,
     prompt="Write a haiku about programming"
@@ -64,7 +64,7 @@ print(res.text)
 ```python
 from ai_sdk import generate_text, openai
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(
     model=model,
     system="You are a helpful coding assistant. Always provide clear, concise explanations.",
@@ -78,7 +78,7 @@ print(res.text)
 ```python
 from ai_sdk import generate_text, openai
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(
     model=model,
     prompt="Write a creative story",
@@ -108,7 +108,7 @@ add = tool(
     execute=lambda a, b: a + b,
 )
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_text(
     model=model,
     prompt="What is 21 + 21?",

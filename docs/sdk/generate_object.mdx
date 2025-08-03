@@ -25,7 +25,7 @@ class Todo(BaseModel):
     title: str
     done: bool = False
 
-model = openai("gpt-4o-mini", temperature=0)
+model = openai("gpt-4.1-mini", temperature=0)
 
 res = generate_object(
     model=model,
@@ -67,7 +67,7 @@ class User(BaseModel):
     age: int
     email: str
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_object(
     model=model,
     schema=User,
@@ -94,7 +94,7 @@ class Person(BaseModel):
     addresses: List[Address]
     phone: Optional[str] = None
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_object(
     model=model,
     schema=Person,
@@ -115,7 +115,7 @@ class Recipe(BaseModel):
     instructions: List[str]
     prep_time: int
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_object(
     model=model,
     schema=Recipe,
@@ -137,7 +137,7 @@ class Story(BaseModel):
     plot: str
     genre: str
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_object(
     model=model,
     schema=Story,
@@ -161,7 +161,7 @@ class Product(BaseModel):
     price: float
     category: str
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 
 try:
     res = generate_object(
@@ -199,7 +199,7 @@ add = tool(
     execute=lambda a, b: a + b,
 )
 
-model = openai("gpt-4o-mini")
+model = openai("gpt-4.1-mini")
 res = generate_object(
     model=model,
     schema=Calculation,

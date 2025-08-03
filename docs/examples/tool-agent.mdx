@@ -38,7 +38,7 @@ add = tool(
 from ai_sdk import openai, generate_text
 from tools import add  # assume above code lives in tools.py
 
-model = openai("gpt-4o-mini", temperature=0)
+model = openai("gpt-4.1-mini", temperature=0)
 
 res = generate_text(
 model=model,
