@@ -24,12 +24,40 @@ print(res.text)
 
 ### Chat Models
 
-| Model           | Description           | Max Tokens | Cost                           |
-| --------------- | --------------------- | ---------- | ------------------------------ |
-| `gpt-4.1`       | Latest GPT-4 model    | 128k       | $5/1M input, $15/1M output     |
-| `gpt-4.1-mini`  | Faster, cheaper GPT-4 | 128k       | $0.15/1M input, $0.6/1M output |
-| `gpt-4-turbo`   | Previous GPT-4 Turbo  | 128k       | $10/1M input, $30/1M output    |
-| `gpt-3.5-turbo` | Fast, cost-effective  | 16k        | $0.5/1M input, $1.5/1M output  |
+| Model                        | Description                | Max Tokens | Input / Cached Input / Output (per 1M tokens) |
+| ---------------------------- | -------------------------- | ---------- | --------------------------------------------- |
+| `gpt-4.1`                    | GPT-4.1 (latest)           | 128k       | $2.00 / $0.50 / $8.00                         |
+| `gpt-4.1-mini`               | GPT-4.1 Mini               | 128k       | $0.40 / $0.10 / $1.60                         |
+| `gpt-4.1-nano`               | GPT-4.1 Nano               | 128k       | $0.10 / $0.025 / $0.40                        |
+| `gpt-4.5-preview`            | GPT-4.5 Preview            | 128k       | $75.00 / $37.50 / $150.00                     |
+| `gpt-4o`                     | GPT-4o (Omni)              | 128k       | $2.50 / $1.25 / $10.00                        |
+| `gpt-4o-mini`                | GPT-4o Mini                | 128k       | $0.15 / $0.075 / $0.60                        |
+| `gpt-4o-mini-audio-preview`  | GPT-4o Mini Audio Preview  | 128k       | $0.15 / - / $0.60                             |
+| `o3`                         | OpenAI O3                  | 128k       | $2.00 / $0.50 / $8.00                         |
+| `o3-deep-research`           | O3 Deep Research           | 128k       | $10.00 / $2.50 / $40.00                       |
+| `o3-pro`                     | O3 Pro                     | 128k       | $20.00 / - / $80.00                           |
+| `o3-mini`                    | O3 Mini                    | 128k       | $1.10 / $0.55 / $4.40                         |
+| `o4-mini`                    | O4 Mini                    | 128k       | $1.10 / $0.275 / $4.40                        |
+| `o4-mini-deep-research`      | O4 Mini Deep Research      | 128k       | $2.00 / $0.50 / $8.00                         |
+| `o1`                         | OpenAI O1                  | 128k       | $15.00 / $7.50 / $60.00                       |
+| `o1-pro`                     | O1 Pro                     | 128k       | $150.00 / - / $600.00                         |
+| `o1-mini`                    | O1 Mini                    | 128k       | $1.10 / $0.55 / $4.40                         |
+| `codex-mini-latest`          | Codex Mini (latest)        | 128k       | $1.50 / $0.375 / $6.00                        |
+| `gpt-4o-mini-search-preview` | GPT-4o Mini Search Preview | 128k       | $0.15 / - / $0.60                             |
+| `gpt-4o-search-preview`      | GPT-4o Search Preview      | 128k       | $2.50 / - / $10.00                            |
+| `computer-use-preview`       | Computer Use Preview       | 128k       | $3.00 / - / $12.00                            |
+
+<details>
+<summary>Text tokens (Flex Processing) pricing</summary>
+
+| Model     | Input / Cached Input / Output (per 1M tokens) |
+| --------- | --------------------------------------------- |
+| `o3`      | $1.00 / $0.25 / $4.00                         |
+| `o4-mini` | $0.55 / $0.138 / $2.20                        |
+
+</details>
+
+| `gpt-4o-mini` | Latest GPT-4 model | 128k | $5/1M input, $15/1M output |
 
 ### Embedding Models
 
