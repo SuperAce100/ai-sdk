@@ -337,15 +337,6 @@ add = tool(name="add", description="Add numbers",
 res = generate_text(model=model, prompt="What's 2+2?", tools=[add])
 ```
 
-## Documentation
-
-- **[Text Generation](/sdk/generate_text)** - `generate_text` and `stream_text`
-- **[Object Generation](/sdk/generate_object)** - `generate_object` and `stream_object`
-- **[Embeddings](/sdk/embed)** - `embed`, `embed_many`, and `cosine_similarity`
-- **[Tools](/sdk/tool)** - `tool` function for LLM-callable functions
-- **[Providers](/sdk/providers)** - Supported AI providers
-- **[Types](/sdk/types)** - Type definitions and schemas
-
 ## Examples
 
 Check out the [examples directory](examples/) for complete working examples:
