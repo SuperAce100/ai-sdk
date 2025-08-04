@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, List
 
 import pytest
+from pydantic import BaseModel, Field
 
 from ai_sdk import generate_text, tool
 from ai_sdk.providers.language_model import LanguageModel
@@ -68,8 +69,12 @@ class DummyModel(LanguageModel):
 
 
 # ---------------------------------------------------------------------------
-# Local tool implementation
+# Local tool implementation with Pydantic model
 # ---------------------------------------------------------------------------
+
+
+class DoubleParams(BaseModel):
+    x: int = Field(description="Integer to double")
 
 
 def _double_fn(x: int) -> int:
@@ -79,11 +84,7 @@ def _double_fn(x: int) -> int:
 double_tool = tool(
     name="double",
     description="Double an integer.",
-    parameters={
-        "type": "object",
-        "properties": {"x": {"type": "integer"}},
-        "required": ["x"],
-    },
+    parameters=DoubleParams,
     execute=_double_fn,
 )
 
@@ -139,3 +140,27 @@ def test_max_steps_guard():
         generate_text(
             model=broken, prompt="irrelevant", tools=[double_tool], max_steps=3
         )
+
+
+def test_tool_with_pydantic_model():
+    """Test that tool with Pydantic model works correctly."""
+    assert double_tool.name == "double"
+    assert double_tool.description == "Double an integer."
+    assert double_tool._pydantic_model == DoubleParams
+    
+    # Test that the JSON schema was generated correctly
+    schema = double_tool.parameters
+    assert schema["type"] == "object"
+    assert "x" in schema["properties"]
+    assert "x" in schema["required"]
+
+
+def test_tool_execution_with_validation():
+    """Test that tool execution validates inputs against Pydantic model."""
+    # Valid input
+    result = double_tool.run(x=5)
+    assert result == 10
+    
+    # Invalid input should raise validation error
+    with pytest.raises(Exception):  # Pydantic validation error
+        double_tool.run(x="not an integer")

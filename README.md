@@ -97,17 +97,20 @@ print(f"Similarity: {similarity:.3f}")
 
 ```python
 from ai_sdk import tool, generate_text, openai
+from pydantic import BaseModel, Field
 
-add = tool(
+# Using Pydantic models (recommended)
+class AddParams(BaseModel):
+    a: float = Field(description="First number")
+    b: float = Field(description="Second number")
+
+@tool(
     name="add",
     description="Add two numbers.",
-    parameters={
-        "type": "object",
-        "properties": {"a": {"type": "number"}, "b": {"type": "number"}},
-        "required": ["a", "b"],
-    },
-    execute=lambda a, b: a + b,
+    parameters=AddParams
 )
+def add(a: float, b: float) -> float:
+    return a + b
 
 model = openai("gpt-4o-mini")
 res = generate_text(
@@ -138,7 +141,7 @@ print(res.text)  # "The result is 42."
 
 ### Tools
 
-- **`tool`** - Define LLM-callable functions with JSON schema
+- **`tool`** - Define LLM-callable functions with Pydantic models or JSON schema
 
 ## Advanced Examples
 
@@ -346,7 +349,7 @@ Check out the [examples directory](examples/) for complete working examples:
 - `generate_object_example.py` - Structured output generation
 - `stream_object_example.py` - Streaming structured output
 - `embeddings_example.py` - Embedding and similarity
-- `tool_calling_example.py` - Tool calling with functions
+- `tool_calling_example.py` - Tool calling with Pydantic models and JSON schema
 
 ## Contributing
 

@@ -368,6 +368,7 @@ class StreamingResult(BaseModel):
 6. **Write tests for all new functionality**
 7. **Update documentation for all changes**
 8. **Use conventional commit messages**
+9. **Do not add unnecessarily comments**
 
 Remember: This codebase prioritizes **simplicity**, **type safety**, and **zero-configuration** usage. All new features should maintain these principles while being provider-agnostic and well-tested.
 description:

@@ -1,470 +1,469 @@
 ---
-title: "tool"
-description: "Turn any Python function into an LLM-callable tool with a single decorator."
-icon: "wrench"
+title: "Tool Calling"
+description: "Define and use tools with the AI SDK for function calling capabilities."
+icon: "https://assets.streamlinehq.com/image/private/w_300,h_300,ar_1/f_auto/v1/icons/1/tools-icon-wii9u8ifrjrd99btrqfgi.png/tools-icon-tdvkiqisswbrmtkiygb0ia.png?_a=DATAg1AAZAA0"
 ---
 
-import { Steps, Step, CodeGroup, Tip, Warning } from "mintlify/components";
+import { Note, Tip, Warning, CodeGroup, Steps, Step } from "mintlify/components";
 
 ## Overview
 
-`tool` is a decorator that turns any Python function into an LLM-callable tool. It allows models to invoke real code during conversations, enabling powerful interactive applications.
+The AI SDK provides a lightweight tool calling system that allows you to define functions that can be called by language models. Tools couple a JSON schema (name, description, parameters) with a Python handler function, enabling the model to execute custom logic.
 
-## What & why
+## Quick Start
 
-Tools allow the model to **invoke real code** in the middle of a conversation. The pattern:
+### Using Pydantic Models (Recommended)
 
-1. Model responds with one or more <em>tool calls</em> (function name + JSON args).
-2. SDK executes the corresponding Python callable.
-3. The <em>tool result</em> is appended to the conversation and fed back to the model.
-
-All of this orchestration is baked into `generate_text`/`stream_text` – you just need to define the tool manifest.
-
-## Basic usage
-
-```python tool.py
-from ai_sdk import tool, generate_text, openai
-
-add = tool(
-    name="add",
-    description="Add two numbers and return the sum.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "x": {"type": "number"},
-            "y": {"type": "number"},
-        },
-        "required": ["x", "y"],
-    },
-    execute=lambda x, y: x + y,
-)
-```
-
-## Parameters
-
-| Field         | Type       | Required | Description                                                     |
-| ------------- | ---------- | -------- | --------------------------------------------------------------- |
-| `name`        | `str`      | ✓        | Unique identifier the model will reference.                     |
-| `description` | `str`      | ✓        | Human-readable summary – tells the model when to call the tool. |
-| `parameters`  | `dict`     | ✓        | JSON-Schema object as required by OpenAI function calling.      |
-| `execute`     | `Callable` | ✓        | Python callable (sync or async) implementing the logic.         |
-
-## Examples
-
-### Simple math tool
+For better type safety and validation, use Pydantic models:
 
 ```python
-from ai_sdk import tool, generate_text, openai
+from pydantic import BaseModel, Field
+from ai_sdk import tool
 
-add = tool(
-    name="add",
-    description="Add two numbers and return the sum.",
+class AddNumbersParams(BaseModel):
+    a: float = Field(description="First number")
+    b: float = Field(description="Second number")
+
+@tool(
+    name="add_numbers",
+    description="Add two numbers together",
+    parameters=AddNumbersParams
+)
+def add_numbers(a: float, b: float) -> float:
+    return a + b
+```
+
+### JSON Schema (Legacy)
+
+For backward compatibility, you can still use JSON schema:
+
+```python
+from ai_sdk import tool
+
+@tool(
+    name="add_numbers",
+    description="Add two numbers together",
     parameters={
         "type": "object",
         "properties": {
-            "x": {"type": "number"},
-            "y": {"type": "number"},
+            "a": {"type": "number", "description": "First number"},
+            "b": {"type": "number", "description": "Second number"}
         },
-        "required": ["x", "y"],
-    },
-    execute=lambda x, y: x + y,
+        "required": ["a", "b"]
+    }
 )
+def add_numbers(a: float, b: float) -> float:
+    return a + b
+```
 
-model = openai("gpt-4.1-mini")
-res = generate_text(
+## Using Tools with Language Models
+
+### Basic Usage
+
+```python
+from ai_sdk import generate_text, openai
+
+model = openai("gpt-4o-mini")
+result = generate_text(
     model=model,
-    prompt="What is 123 + 456?",
-    tools=[add],
+    prompt="What is 15 + 27?",
+    tools=[add_numbers]
 )
-print(res.text)  # "The result is 579."
+print(result.text)  # "The result is 42."
 ```
 
-### Weather API tool
+### Streaming with Tools
 
 ```python
-from ai_sdk import tool, generate_text, openai
-import requests
+import asyncio
+from ai_sdk import stream_text, openai
 
-def get_weather(city: str) -> str:
-    """Get current weather for a city."""
-    # Mock weather API call
+async def main():
+    model = openai("gpt-4o-mini")
+    stream = stream_text(
+        model=model,
+        prompt="Calculate 10 * 5 and explain the result.",
+        tools=[multiply_numbers]
+    )
+
+    async for chunk in stream.text_stream:
+        print(chunk, end="", flush=True)
+
+asyncio.run(main())
+```
+
+## Advanced Tool Examples
+
+### Complex Pydantic Model with Validation
+
+```python
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from ai_sdk import tool
+
+class UserProfileParams(BaseModel):
+    name: str = Field(description="User's full name", min_length=1, max_length=100)
+    age: int = Field(description="User's age", ge=0, le=120)
+    email: Optional[str] = Field(default=None, description="User's email address")
+    interests: List[str] = Field(default_factory=list, description="User's interests")
+    is_active: bool = Field(default=True, description="Whether the user is active")
+
+@tool(
+    name="create_user_profile",
+    description="Create a new user profile with validation",
+    parameters=UserProfileParams
+)
+def create_user_profile(
+    name: str,
+    age: int,
+    email: Optional[str] = None,
+    interests: List[str] = None,
+    is_active: bool = True
+) -> dict:
+    return {
+        "id": f"user_{hash(name) % 10000}",
+        "name": name,
+        "age": age,
+        "email": email,
+        "interests": interests or [],
+        "is_active": is_active,
+        "created_at": "2024-01-01T00:00:00Z"
+    }
+```
+
+### Calculator with Multiple Operations
+
+```python
+from pydantic import BaseModel, Field
+from ai_sdk import tool
+
+class CalculatorParams(BaseModel):
+    a: float = Field(description="First number")
+    b: float = Field(description="Second number")
+    operation: str = Field(description="Mathematical operation", pattern="^[+\\-*/]$")
+
+@tool(
+    name="calculator",
+    description="Perform basic mathematical operations",
+    parameters=CalculatorParams
+)
+def calculator(a: float, b: float, operation: str) -> float:
+    if operation == "+":
+        return a + b
+    elif operation == "-":
+        return a - b
+    elif operation == "*":
+        return a * b
+    elif operation == "/":
+        if b == 0:
+            raise ValueError("Division by zero")
+        return a / b
+    else:
+        raise ValueError(f"Unknown operation: {operation}")
+```
+
+### Async Tool Functions
+
+```python
+import asyncio
+from ai_sdk import tool
+
+@tool(
+    name="fetch_weather",
+    description="Get current weather for a city",
+    parameters={
+        "type": "object",
+        "properties": {
+            "city": {"type": "string", "description": "City name"}
+        },
+        "required": ["city"]
+    }
+)
+async def fetch_weather(city: str) -> str:
+    # Simulate async API call
+    await asyncio.sleep(0.1)
     weather_data = {
         "New York": "72°F, Sunny",
         "London": "55°F, Rainy",
         "Tokyo": "68°F, Cloudy"
     }
     return weather_data.get(city, "Weather data not available")
+```
 
-weather_tool = tool(
-    name="get_weather",
-    description="Get current weather information for a city.",
+## Tool Validation
+
+### Automatic Validation with Pydantic
+
+When using Pydantic models, the tool automatically validates inputs:
+
+```python
+# This will raise a validation error
+try:
+    result = create_user_profile.run(name="", age=-5)
+except Exception as e:
+    print(f"Validation error: {e}")
+```
+
+### Manual Validation
+
+```python
+@tool(
+    name="safe_division",
+    description="Perform safe division with validation",
     parameters={
         "type": "object",
         "properties": {
-            "city": {
-                "type": "string",
-                "description": "The city name to get weather for"
-            }
+            "numerator": {"type": "number"},
+            "denominator": {"type": "number"}
         },
-        "required": ["city"]
-    },
-    execute=get_weather
+        "required": ["numerator", "denominator"]
+    }
 )
-
-model = openai("gpt-4.1-mini")
-res = generate_text(
-    model=model,
-    prompt="What's the weather like in New York?",
-    tools=[weather_tool],
-)
-print(res.text)
+def safe_division(numerator: float, denominator: float) -> float:
+    if denominator == 0:
+        raise ValueError("Division by zero is not allowed")
+    return numerator / denominator
 ```
 
-### Database query tool
+## Tool Execution
+
+### Direct Tool Execution
 
 ```python
-from ai_sdk import tool, generate_text, openai
+# Execute tool directly
+result = add_numbers.run(a=10, b=20)
+print(result)  # 30
 
-def query_database(query: str) -> str:
-    """Execute a database query and return results."""
-    # Mock database
-    users = [
-        {"id": 1, "name": "Alice", "email": "alice@example.com"},
-        {"id": 2, "name": "Bob", "email": "bob@example.com"},
-        {"id": 3, "name": "Charlie", "email": "charlie@example.com"}
-    ]
+# Execute async tool
+weather = await fetch_weather.run(city="New York")
+print(weather)  # "72°F, Sunny"
+```
 
-    if "name" in query.lower():
-        return str([user["name"] for user in users])
-    elif "email" in query.lower():
-        return str([user["email"] for user in users])
+### Tool Execution with Validation
+
+```python
+# With Pydantic model validation
+user = create_user_profile.run(
+    name="Alice",
+    age=30,
+    email="alice@example.com",
+    interests=["python", "ai"]
+)
+print(user)
+```
+
+## Best Practices
+
+### 1. Use Pydantic Models
+
+<Tip>
+  Always use Pydantic models for tool parameters when possible. They provide: - Automatic validation
+  - Better type safety - Self-documenting schemas - IDE support
+</Tip>
+
+### 2. Provide Clear Descriptions
+
+```python
+class WeatherParams(BaseModel):
+    city: str = Field(description="The city to get weather for")
+    units: str = Field(default="celsius", description="Temperature units (celsius/fahrenheit)")
+```
+
+### 3. Handle Errors Gracefully
+
+```python
+@tool(name="api_call", description="Make an API call")
+def api_call(url: str) -> dict:
+    try:
+        # API call logic
+        return {"success": True, "data": "..."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+```
+
+### 4. Use Async for I/O Operations
+
+```python
+@tool(name="database_query", description="Query database")
+async def database_query(query: str) -> list:
+    # Async database operation
+    return await db.execute(query)
+```
+
+## Tool Schema Generation
+
+### From Pydantic Models
+
+The SDK automatically converts Pydantic models to JSON schema:
+
+```python
+class ComplexParams(BaseModel):
+    name: str = Field(description="User name")
+    age: int = Field(description="User age", ge=0)
+    email: Optional[str] = Field(default=None, description="User email")
+
+@tool(name="complex_tool", description="Complex tool", parameters=ComplexParams)
+def complex_tool(name: str, age: int, email: Optional[str] = None) -> dict:
+    return {"name": name, "age": age, "email": email}
+
+# The generated schema includes all field descriptions and constraints
+print(complex_tool.parameters)
+```
+
+### Manual JSON Schema
+
+For backward compatibility, you can still use manual JSON schema:
+
+```python
+@tool(
+    name="manual_tool",
+    description="Tool with manual schema",
+    parameters={
+        "type": "object",
+        "properties": {
+            "input": {"type": "string", "description": "Input string"}
+        },
+        "required": ["input"]
+    }
+)
+def manual_tool(input: str) -> str:
+    return input.upper()
+```
+
+## Error Handling
+
+### Validation Errors
+
+```python
+# Pydantic validation errors
+try:
+    result = create_user_profile.run(name="", age=-5)
+except Exception as e:
+    print(f"Validation failed: {e}")
+```
+
+### Runtime Errors
+
+```python
+@tool(name="risky_operation", description="Operation that might fail")
+def risky_operation(input: str) -> str:
+    if input == "error":
+        raise ValueError("Simulated error")
+    return f"Processed: {input}"
+
+# Handle runtime errors
+try:
+    result = risky_operation.run(input="error")
+except Exception as e:
+    print(f"Operation failed: {e}")
+```
+
+## Provider Compatibility
+
+### OpenAI Function Calling
+
+Tools are automatically converted to OpenAI's function calling format:
+
+```python
+# This works with OpenAI models
+result = generate_text(
+    model=openai("gpt-4o-mini"),
+    prompt="Calculate 5 + 3",
+    tools=[add_numbers]
+)
+```
+
+### Anthropic Tool Use
+
+Tools work with Claude models through the OpenAI compatibility layer:
+
+```python
+# This works with Anthropic models
+result = generate_text(
+    model=anthropic("claude-3-haiku-20240307"),
+    prompt="Calculate 5 + 3",
+    tools=[add_numbers]
+)
+```
+
+## Advanced Patterns
+
+### Tool Composition
+
+```python
+@tool(name="math_operations", description="Multiple math operations")
+def math_operations(operation: str, a: float, b: float) -> float:
+    if operation == "add":
+        return add_numbers.run(a=a, b=b)
+    elif operation == "multiply":
+        return multiply_numbers.run(a=a, b=b)
     else:
-        return str(users)
+        raise ValueError(f"Unknown operation: {operation}")
+```
 
-db_tool = tool(
-    name="query_database",
-    description="Query the user database for information.",
+### Tool with Context
+
+```python
+class ContextualParams(BaseModel):
+    query: str = Field(description="User query")
+    context: Optional[str] = Field(default=None, description="Additional context")
+
+@tool(name="contextual_search", description="Search with context")
+def contextual_search(query: str, context: Optional[str] = None) -> dict:
+    # Use context to improve search
+    search_results = perform_search(query, context)
+    return {"results": search_results, "query": query, "context": context}
+```
+
+## Migration from JSON Schema
+
+If you have existing tools using JSON schema, you can easily migrate to Pydantic models:
+
+### Before (JSON Schema)
+
+```python
+@tool(
+    name="add_numbers",
+    description="Add two numbers",
     parameters={
         "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "The query to execute"
-            }
-        },
-        "required": ["query"]
-    },
-    execute=query_database
+        "properties": {"a": {"type": "number"}, "b": {"type": "number"}},
+        "required": ["a", "b"]
+    }
 )
-
-model = openai("gpt-4.1-mini")
-res = generate_text(
-    model=model,
-    prompt="Show me all user names from the database",
-    tools=[db_tool],
-)
-print(res.text)
+def add_numbers(a: float, b: float) -> float:
+    return a + b
 ```
 
-### File system tool
+### After (Pydantic Model)
 
 ```python
-from ai_sdk import tool, generate_text, openai
-import os
+class AddNumbersParams(BaseModel):
+    a: float = Field(description="First number")
+    b: float = Field(description="Second number")
 
-def list_files(directory: str) -> str:
-    """List files in a directory."""
-    try:
-        files = os.listdir(directory)
-        return str(files)
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-def read_file(filename: str) -> str:
-    """Read contents of a file."""
-    try:
-        with open(filename, 'r') as f:
-            return f.read()
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-file_tools = [
-    tool(
-        name="list_files",
-        description="List files in a directory.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "directory": {
-                    "type": "string",
-                    "description": "Directory path to list"
-                }
-            },
-            "required": ["directory"]
-        },
-        execute=list_files
-    ),
-    tool(
-        name="read_file",
-        description="Read contents of a file.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "filename": {
-                    "type": "string",
-                    "description": "File path to read"
-                }
-            },
-            "required": ["filename"]
-        },
-        execute=read_file
-    )
-]
-
-model = openai("gpt-4.1-mini")
-res = generate_text(
-    model=model,
-    prompt="List files in the current directory and read the README file",
-    tools=file_tools,
+@tool(
+    name="add_numbers",
+    description="Add two numbers",
+    parameters=AddNumbersParams
 )
-print(res.text)
-```
-
-### Async tool example
-
-```python
-import asyncio
-from ai_sdk import tool, generate_text, openai
-
-async def fetch_data(url: str) -> str:
-    """Fetch data from a URL."""
-    import aiohttp
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            return await response.text()
-
-fetch_tool = tool(
-    name="fetch_data",
-    description="Fetch data from a URL.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "url": {
-                "type": "string",
-                "description": "URL to fetch data from"
-            }
-        },
-        "required": ["url"]
-    },
-    execute=fetch_data
-)
-
-async def main():
-    model = openai("gpt-4.1-mini")
-    res = generate_text(
-        model=model,
-        prompt="Fetch data from https://api.example.com/data",
-        tools=[fetch_tool],
-    )
-    print(res.text)
-
-asyncio.run(main())
-```
-
-## Tool calling with other functions
-
-### With generate_text
-
-```python
-from ai_sdk import tool, generate_text, openai
-
-calculator = tool(
-    name="calculate",
-    description="Perform mathematical calculations.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "expression": {
-                "type": "string",
-                "description": "Mathematical expression to evaluate"
-            }
-        },
-        "required": ["expression"]
-    },
-    execute=lambda expr: eval(expr)  # Note: eval is unsafe in production
-)
-
-model = openai("gpt-4.1-mini")
-res = generate_text(
-    model=model,
-    prompt="Calculate (15 * 3) + 7",
-    tools=[calculator],
-)
-print(res.text)
-```
-
-### With stream_text
-
-```python
-import asyncio
-from ai_sdk import tool, stream_text, openai
-
-search_tool = tool(
-    name="search",
-    description="Search for information on the web.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "Search query"
-            }
-        },
-        "required": ["query"]
-    },
-    execute=lambda query: f"Search results for '{query}': [mock results]"
-)
-
-async def main():
-    model = openai("gpt-4.1-mini")
-    stream_res = stream_text(
-        model=model,
-        prompt="Search for information about Python programming",
-        tools=[search_tool],
-    )
-
-    async for chunk in stream_res.text_stream:
-        print(chunk, end="", flush=True)
-
-asyncio.run(main())
-```
-
-## Debugging tool calls
-
-You can inspect tool calls and results for debugging:
-
-```python
-from ai_sdk import tool, generate_text, openai
-
-add = tool(
-    name="add",
-    description="Add two numbers.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "a": {"type": "number"},
-            "b": {"type": "number"},
-        },
-        "required": ["a", "b"],
-    },
-    execute=lambda a, b: a + b,
-)
-
-model = openai("gpt-4.1-mini")
-res = generate_text(
-    model=model,
-    prompt="What is 21 + 21?",
-    tools=[add],
-)
-
-# Inspect tool calls
-for tc in res.tool_calls:
-    print(f"Tool called: {tc.tool_name}")
-    print(f"Arguments: {tc.args}")
-
-# Inspect tool results
-for tr in res.tool_results:
-    print(f"Tool result: {tr.result}")
-```
-
-## Best practices
-
-### Clear descriptions
-
-```python
-# Good
-tool(
-    name="get_user_info",
-    description="Retrieve user information by user ID. Use this when the user asks about account details, profile information, or user data.",
-    # ...
-)
-
-# Bad
-tool(
-    name="get_user_info",
-    description="Get user info",
-    # ...
-)
-```
-
-### Proper parameter schemas
-
-```python
-# Good - detailed schema
-tool(
-    name="create_user",
-    description="Create a new user account.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "name": {
-                "type": "string",
-                "description": "User's full name",
-                "minLength": 1
-            },
-            "email": {
-                "type": "string",
-                "description": "User's email address",
-                "format": "email"
-            },
-            "age": {
-                "type": "integer",
-                "description": "User's age",
-                "minimum": 13,
-                "maximum": 120
-            }
-        },
-        "required": ["name", "email"]
-    },
-    execute=create_user
-)
-```
-
-### Error handling
-
-```python
-def safe_calculator(expression: str) -> str:
-    """Safe calculator that handles errors gracefully."""
-    try:
-        result = eval(expression)  # Note: eval is unsafe in production
-        return str(result)
-    except Exception as e:
-        return f"Error calculating '{expression}': {str(e)}"
-
-calc_tool = tool(
-    name="calculate",
-    description="Perform mathematical calculations safely.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "expression": {
-                "type": "string",
-                "description": "Mathematical expression to evaluate"
-            }
-        },
-        "required": ["expression"]
-    },
-    execute=safe_calculator
-)
+def add_numbers(a: float, b: float) -> float:
+    return a + b
 ```
 
 ---
 
 <Tip>
-  Set <code>max_steps</code> (default <code>8</code>) to guard against runaway tool loops.
+  Tools provide a powerful way to extend AI model capabilities with custom logic. Use Pydantic
+  models for the best developer experience and type safety.
 </Tip>
 
+<Note>
+  All tools are automatically validated and converted to the appropriate format for each provider.
+  The SDK handles the complexity of provider-specific implementations.
+</Note>
+
 <Warning>
-  Always validate and sanitize inputs in your tool functions, especially when using{" "}
-  <code>eval()</code> or similar functions.
-</Warning>{" "}
+  While JSON schema is still supported for backward compatibility, Pydantic models are recommended
+  for new development due to their superior type safety and validation capabilities.
+</Warning>

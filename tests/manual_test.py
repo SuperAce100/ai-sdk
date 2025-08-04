@@ -1,4 +1,4 @@
-# ---------------------------------------------------------------------------
+Sw# ---------------------------------------------------------------------------
 # Manual demo script – extended with *tool calling* showcase
 # ---------------------------------------------------------------------------
 
@@ -26,15 +26,19 @@ from ai_sdk import (
     anthropic,
 )
 from ai_sdk.types import CoreSystemMessage, CoreUserMessage, TextPart
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 MODEL_ID = os.getenv("AI_SDK_TEST_MODEL", "claude-3-5-haiku-latest")
 
 
 # ---------------------------------------------------------------------------
-# Tool definition – doubles an integer
+# Tool definition with Pydantic model – doubles an integer
 # ---------------------------------------------------------------------------
+
+
+class DoubleParams(BaseModel):
+    x: int = Field(description="Integer to double")
 
 
 def _double_exec(x: int) -> int:  # noqa: D401
@@ -45,11 +49,7 @@ def _double_exec(x: int) -> int:  # noqa: D401
 double_tool = tool(
     name="double",
     description="Double the given integer.",
-    parameters={
-        "type": "object",
-        "properties": {"x": {"type": "integer"}},
-        "required": ["x"],
-    },
+    parameters=DoubleParams,
     execute=_double_exec,
 )
 

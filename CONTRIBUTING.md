@@ -327,6 +327,64 @@ docs/
    - Include tips, warnings, and notes
    - Add interactive code snippets
 
+## Tool Development
+
+### Creating New Tools
+
+When adding new tools to the SDK, follow these guidelines:
+
+1. **Use Pydantic Models (Recommended)**
+
+   - Define parameter schemas using Pydantic models
+   - Include field descriptions and validation constraints
+   - Provide clear, descriptive field names
+
+2. **Tool Structure**
+
+   ```python
+   from pydantic import BaseModel, Field
+   from ai_sdk import tool
+
+   class MyToolParams(BaseModel):
+       input: str = Field(description="Input parameter")
+       option: bool = Field(default=False, description="Optional flag")
+
+   @tool(
+       name="my_tool",
+       description="Clear description of what the tool does",
+       parameters=MyToolParams
+   )
+   def my_tool(input: str, option: bool = False) -> str:
+       # Tool implementation
+       return f"Processed: {input}"
+   ```
+
+3. **Validation and Error Handling**
+
+   - Use Pydantic validation constraints (e.g., `ge`, `le`, `min_length`)
+   - Handle errors gracefully with meaningful messages
+   - Test edge cases and invalid inputs
+
+4. **Testing Tools**
+
+   - Test both valid and invalid inputs
+   - Verify Pydantic model validation
+   - Test tool execution and return values
+   - Mock external dependencies
+
+5. **Documentation**
+   - Update tool documentation with examples
+   - Include parameter descriptions
+   - Show both Pydantic and JSON schema approaches
+
+### Tool Best Practices
+
+- **Clear Descriptions**: Provide descriptive field and tool descriptions
+- **Type Safety**: Use Pydantic models for automatic validation
+- **Error Handling**: Gracefully handle validation and runtime errors
+- **Testing**: Comprehensive test coverage for all tool functionality
+- **Documentation**: Clear examples and usage patterns
+
 ## Submitting Changes
 
 ### Workflow
