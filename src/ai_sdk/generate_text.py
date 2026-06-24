@@ -1,5 +1,5 @@
 """
-High-level helpers that mimic the Vercel AI SDK ``generateText`` and ``streamText`` APIs.
+High-level helpers mimicking Vercel AI SDK ``generateText`` / ``streamText``.
 
 Only the subset required for a first Python port is implemented.  Additional
 flags and features will be added in the future.
@@ -7,39 +7,34 @@ flags and features will be added in the future.
 
 from __future__ import annotations
 
+import asyncio
+import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import (
     Any,
-    AsyncIterator,
-    Dict,
-    List,
-    Optional,
     TypedDict,
-    Callable,
-    Awaitable,
 )
 
-import asyncio
-import uuid
 from ai_sdk.ui_stream import AnyUIStreamPart
 
 from .providers.language_model import LanguageModel
-from .types import (
-    AnyMessage,
-    ReasoningDetail,
-    Source,
-    GeneratedFile,
-    ToolCall,
-    ToolResult,
-    TokenUsage,
-)  # type: ignore
 
 # Optional tool support ------------------------------------------------------
-
 from .tool import Tool  # re-export helper
 
 # On-step result structure
-from .types import OnStepFinishResult, ResponseMetadata
+from .types import (
+    AnyMessage,
+    GeneratedFile,
+    OnStepFinishResult,
+    ReasoningDetail,
+    ResponseMetadata,
+    Source,
+    TokenUsage,
+    ToolCall,
+    ToolResult,
+)  # type: ignore
 
 # Callback type
 OnStepCallback = Callable[[OnStepFinishResult], Any]
@@ -69,14 +64,14 @@ class GenerateTextResult:
 
     text: str
     finish_reason: str | None = None
-    usage: Optional[TokenUsage] = None
-    reasoning: Optional[str] = None
-    reasoning_details: Optional[List[ReasoningDetail]] = None
-    sources: Optional[List[Source]] = None
-    files: Optional[List[GeneratedFile]] = None
-    tool_calls: Optional[List[ToolCall]] = None
-    tool_results: Optional[List[ToolResult]] = None
-    provider_metadata: Dict[str, Any] | None = None
+    usage: TokenUsage | None = None
+    reasoning: str | None = None
+    reasoning_details: list[ReasoningDetail] | None = None
+    sources: list[Source] | None = None
+    files: list[GeneratedFile] | None = None
+    tool_calls: list[ToolCall] | None = None
+    tool_results: list[ToolResult] | None = None
+    provider_metadata: dict[str, Any] | None = None
     raw_response: Any | None = None
 
 
@@ -89,15 +84,15 @@ class StreamTextResult:
     text_stream: AsyncIterator[str]
 
     # Futures/promises – populated internally by ``_consume_stream``.
-    _text_parts: List[str]
+    _text_parts: list[str]
 
     # Data stream (UI message stream) yielding structured parts
-    full_stream: AsyncIterator["AnyUIStreamPart"] | None = None
+    full_stream: AsyncIterator[AnyUIStreamPart] | None = None
 
     # Extended metadata populated when stream ends (if available)
     finish_reason: str | None = None
-    usage: Optional[TokenUsage] = None
-    provider_metadata: Optional[Dict[str, Any]] = None
+    usage: TokenUsage | None = None
+    provider_metadata: dict[str, Any] | None = None
 
     async def text(self) -> str:  # noqa: D401  # keep parity with TS SDK
         """Return the **full** generated text once the stream has ended."""
@@ -108,7 +103,7 @@ class StreamTextResult:
 
     # Alias to match TS naming on the Python object for convenience
     @property
-    def fullStream(self) -> AsyncIterator["AnyUIStreamPart"] | None:  # type: ignore[override]
+    def fullStream(self) -> AsyncIterator[AnyUIStreamPart] | None:  # type: ignore[override]
         return self.full_stream
 
     # ------------------------------------------------------------------
@@ -125,7 +120,7 @@ class StreamTextResult:
 # ---------------------------------------------------------------------------
 
 
-def _build_result(raw: Dict[str, Any]) -> GenerateTextResult:  # noqa: D401
+def _build_result(raw: dict[str, Any]) -> GenerateTextResult:  # noqa: D401
     """Translate a *raw* provider response into a typed result object."""
 
     return GenerateTextResult(
@@ -181,8 +176,8 @@ def generate_text(
     model: LanguageModel,
     prompt: str | None = None,
     system: str | None = None,
-    messages: Optional[List[AnyMessage]] = None,
-    tools: Optional[List[Tool]] = None,
+    messages: list[AnyMessage] | None = None,
+    tools: list[Tool] | None = None,
     max_steps: int = 8,
     on_step: OnStepCallback | None = None,
     **kwargs: Any,
@@ -241,7 +236,7 @@ def generate_text(
 
     # Fast-path – no tools provided → fall back to the original behaviour.
     if not tools:
-        serialised_messages: Optional[List[Dict[str, Any]]] = None
+        serialised_messages: list[dict[str, Any]] | None = None
         if messages is not None:
             serialised_messages = [
                 m.to_dict()  # type: ignore[attr-defined]
@@ -259,7 +254,7 @@ def generate_text(
     # ---------------------------------------------------------------------
     # 1) Build the *initial* conversation array for provider calls.
     # ---------------------------------------------------------------------
-    conversation: List[Dict[str, Any]] = []
+    conversation: list[dict[str, Any]] = []
 
     if messages is not None:
         conversation = [m.to_dict() for m in messages]  # type: ignore[attr-defined]
@@ -271,17 +266,19 @@ def generate_text(
         if prompt:
             conversation.append({"role": "user", "content": prompt})
 
-    # Pre-compute the JSON schema for the provider.
-    tools_schema = [t.to_openai_dict() for t in tools]
+    # Pass Tool instances directly; each provider converts them to its
+    # own native tool schema (OpenAI function tools, Anthropic input_schema,
+    # Gemini function declarations, etc.).
+    tools_for_provider: list[Tool] = list(tools)
 
     # Keep track of *all* tool results for the final result aggregation.
-    aggregated_tool_results: List[ToolResult] = []
+    aggregated_tool_results: list[ToolResult] = []
 
     step_idx = 0
     while True:
         raw = model.generate_text(
             messages=conversation,
-            tools=tools_schema,
+            tools=tools_for_provider,
             tool_choice="auto",
             **kwargs,
         )
@@ -433,8 +430,8 @@ def stream_text(
     model: LanguageModel,
     prompt: str | None = None,
     system: str | None = None,
-    messages: Optional[List[AnyMessage]] = None,
-    tools: Optional[List[Tool]] = None,
+    messages: list[AnyMessage] | None = None,
+    tools: list[Tool] | None = None,
     max_steps: int = 8,
     on_step: OnStepCallback | None = None,
     on_chunk: ChunkCallback | None = None,
@@ -498,18 +495,18 @@ def stream_text(
             yield final_res.text
 
         # Build a minimal UI data stream that wraps the single final text
-        async def _single_full_stream() -> AsyncIterator["AnyUIStreamPart"]:
+        async def _single_full_stream() -> AsyncIterator[AnyUIStreamPart]:
             from ai_sdk.ui_stream import (
+                FinishStepPart,
+                StartStepPart,
+                ToolInputAvailablePart,
+                ToolInputStartPart,
+                ToolOutputAvailablePart,
+                UIFinishMessagePart,
                 UIStreamStartPart,
-                UITextStartPart,
                 UITextDeltaPart,
                 UITextEndPart,
-                UIFinishMessagePart,
-                StartStepPart,
-                FinishStepPart,
-                ToolInputStartPart,
-                ToolInputAvailablePart,
-                ToolOutputAvailablePart,
+                UITextStartPart,
             )
 
             text_id = f"msg_{uuid.uuid4().hex}"
@@ -561,7 +558,7 @@ def stream_text(
     # Default streaming path (no tool support)
     # ------------------------------------------------------------------
 
-    serialised_messages: Optional[List[Dict[str, Any]]] = None
+    serialised_messages: list[dict[str, Any]] | None = None
     if messages is not None:
         serialised_messages = [
             m.to_dict()  # type: ignore[attr-defined]
@@ -576,9 +573,9 @@ def stream_text(
         **kwargs,
     )
 
-    captured_parts: List[str] = []
-    text_queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
-    data_queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
+    captured_parts: list[str] = []
+    text_queue: asyncio.Queue[str | None] = asyncio.Queue()
+    data_queue: asyncio.Queue[str | None] = asyncio.Queue()
 
     async def _producer() -> None:
         try:
@@ -620,13 +617,13 @@ def stream_text(
                 break
             yield item
 
-    async def _full_stream_consumer() -> AsyncIterator["AnyUIStreamPart"]:
+    async def _full_stream_consumer() -> AsyncIterator[AnyUIStreamPart]:
         from ai_sdk.ui_stream import (
+            UIFinishMessagePart,
             UIStreamStartPart,
-            UITextStartPart,
             UITextDeltaPart,
             UITextEndPart,
-            UIFinishMessagePart,
+            UITextStartPart,
         )
 
         text_id = f"msg_{uuid.uuid4().hex}"
