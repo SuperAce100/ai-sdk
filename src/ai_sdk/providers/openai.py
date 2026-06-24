@@ -1,12 +1,75 @@
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Dict, List, Optional
-from pydantic import BaseModel
+from collections.abc import AsyncIterator
+from typing import Any
 
 import openai as _openai
+from pydantic import BaseModel
 
-from .language_model import LanguageModel
+from ..tool import Tool
 from .embedding_model import EmbeddingModel
+from .language_model import LanguageModel
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _normalise_openai_tools(request_kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Convert :class:`~ai_sdk.tool.Tool` instances to OpenAI tool format.
+
+    The high-level :func:`ai_sdk.generate_text` helper passes ``Tool`` objects
+    directly so each provider can apply its own schema.  This helper turns them
+    (and a few other intermediate shapes) into the
+    ``{"type": "function", "function": {...}}`` objects expected by the Chat
+    Completions API.
+    """
+    tools = request_kwargs.get("tools")
+    if not tools:
+        return request_kwargs
+
+    normalised: list[dict[str, Any]] = []
+    for t in tools:
+        if isinstance(t, Tool):
+            normalised.append(t.to_openai_dict())
+        elif isinstance(t, dict):
+            if t.get("type") == "function" and "function" in t:
+                normalised.append(t)
+            elif "input_schema" in t and "name" in t:
+                # Anthropic-shaped tool → OpenAI function tool.
+                normalised.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": t["name"],
+                            "description": t.get("description", ""),
+                            "parameters": t.get("input_schema", {"type": "object"}),
+                        },
+                    }
+                )
+            elif "name" in t and "parameters" in t:
+                # Gemini-style function declaration.
+                normalised.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": t["name"],
+                            "description": t.get("description", ""),
+                            "parameters": t.get("parameters", {"type": "object"}),
+                        },
+                    }
+                )
+            else:
+                normalised.append(t)
+        else:
+            continue
+
+    if normalised:
+        request_kwargs = {**request_kwargs, "tools": normalised}
+    else:
+        request_kwargs = {k: v for k, v in request_kwargs.items() if k != "tools"}
+    return request_kwargs
+
 
 # ---------------------------------------------------------------------------
 # Chat completion models
@@ -14,11 +77,32 @@ from .embedding_model import EmbeddingModel
 
 
 class OpenAIModel(LanguageModel):
-    """Implementation of :class:`~ai_sdk.providers.language_model.LanguageModel` for OpenAI Chat models."""
+    """Implementation of :class:`~ai_sdk.providers.language_model.LanguageModel`
+    for OpenAI chat models using the official ``openai`` Python SDK.
+
+    Talks directly to the OpenAI Chat Completions API so that every request
+    can take advantage of OpenAI-specific features such as structured outputs
+    (``chat.completions.parse``), function / tool calling, vision inputs, and
+    streaming deltas.
+    """
 
     def __init__(
-        self, model: str, *, api_key: Optional[str] = None, **default_kwargs: Any
+        self, model: str, *, api_key: str | None = None, **default_kwargs: Any
     ) -> None:
+        """Initialise a native OpenAI client for *model*.
+
+        Parameters
+        ----------
+        model:
+            OpenAI model identifier (e.g. ``"gpt-4o-mini"``, ``"gpt-4.1"``).
+        api_key:
+            API key.  Falls back to the ``OPENAI_API_KEY`` environment
+            variable when *None*.
+        **default_kwargs:
+            Keyword arguments applied to every subsequent request
+            (e.g. ``temperature``, ``top_p``, ``user``).  Call-site kwargs
+            always win over these defaults.
+        """
         # ``openai`` 1.x client prefers an *api_key* argument.  We keep the
         # client instance around so we can re-use TCP connections.
         self._client = _openai.OpenAI(api_key=api_key)
@@ -35,10 +119,29 @@ class OpenAIModel(LanguageModel):
         *,
         prompt: str | None = None,
         system: str | None = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        messages: list[dict[str, Any]] | None = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
-        """Synchronously generate a completion using the Chat Completions API."""
+    ) -> dict[str, Any]:
+        """Synchronously generate a completion using the Chat Completions API.
+
+        Parameters
+        ----------
+        prompt:
+            Simple user prompt (used when *messages* is not supplied).
+        system:
+            Optional system instruction prepended as a ``system`` message.
+        messages:
+            Conversation history in the SDK intermediate format.
+        **kwargs:
+            Extra OpenAI request parameters such as ``tools``, ``tool_choice``,
+            ``temperature``, ``max_tokens``, or ``response_format``.
+
+        Returns
+        -------
+        dict
+            Standardised result containing ``text``, ``finish_reason``,
+            ``usage``, ``raw_response``, and optionally ``tool_calls``.
+        """
         if prompt is None and not messages:
             raise ValueError("Either 'prompt' or 'messages' must be provided.")
 
@@ -47,7 +150,8 @@ class OpenAIModel(LanguageModel):
         )
 
         # Merge default kwargs with call-site overrides.
-        request_kwargs: Dict[str, Any] = {**self._default_kwargs, **kwargs}
+        request_kwargs: dict[str, Any] = {**self._default_kwargs, **kwargs}
+        request_kwargs = _normalise_openai_tools(request_kwargs)
 
         resp = self._client.chat.completions.create(
             model=self._model,
@@ -103,9 +207,9 @@ class OpenAIModel(LanguageModel):
         schema: type[BaseModel],
         prompt: str | None = None,
         system: str | None = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        messages: list[dict[str, Any]] | None = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Return a structured object parsed directly by the OpenAI SDK.
 
         This relies on the experimental ``chat.completions.parse`` helper that
@@ -119,7 +223,11 @@ class OpenAIModel(LanguageModel):
         chat_messages = _build_chat_messages(
             prompt=prompt, system=system, messages=messages
         )
-        request_kwargs: Dict[str, Any] = {**self._default_kwargs, **kwargs}
+        request_kwargs: dict[str, Any] = {**self._default_kwargs, **kwargs}
+        # Structured outputs and tool use are mutually exclusive here.
+        request_kwargs.pop("tools", None)
+        request_kwargs.pop("tool_choice", None)
+        request_kwargs = _normalise_openai_tools(request_kwargs)
 
         # Call the *parse* helper which validates + coerces the response.
         resp = self._client.chat.completions.parse(
@@ -148,7 +256,7 @@ class OpenAIModel(LanguageModel):
         *,
         prompt: str | None = None,
         system: str | None = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
+        messages: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
         """Stream deltas from the Chat Completions API.
@@ -165,7 +273,8 @@ class OpenAIModel(LanguageModel):
         chat_messages = _build_chat_messages(
             prompt=prompt, system=system, messages=messages
         )
-        request_kwargs: Dict[str, Any] = {**self._default_kwargs, **kwargs}
+        request_kwargs: dict[str, Any] = {**self._default_kwargs, **kwargs}
+        request_kwargs = _normalise_openai_tools(request_kwargs)
 
         import asyncio
         import threading
@@ -175,7 +284,7 @@ class OpenAIModel(LanguageModel):
             # 1) Kick off the *blocking* OpenAI streaming request in a
             #    background thread.
             # ----------------------------------------------------------------
-            queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
+            queue: asyncio.Queue[str | None] = asyncio.Queue()
 
             def _producer() -> None:
                 try:
@@ -226,13 +335,13 @@ class OpenAIEmbeddingModel(EmbeddingModel):
         self,
         model: str,
         *,
-        api_key: Optional[str] = None,
-        max_batch_size: Optional[int] = None,
+        api_key: str | None = None,
+        max_batch_size: int | None = None,
         **default_kwargs: Any,
     ) -> None:
         self._client = _openai.OpenAI(api_key=api_key)
         self._model = model
-        self._default_kwargs: Dict[str, Any] = default_kwargs
+        self._default_kwargs: dict[str, Any] = default_kwargs
         if max_batch_size is not None:
             self.max_batch_size = max_batch_size  # type: ignore[assignment]
 
@@ -240,7 +349,7 @@ class OpenAIEmbeddingModel(EmbeddingModel):
     # EmbeddingModel interface
     # ------------------------------------------------------------------
 
-    def embed_many(self, values: List[Any], **kwargs: Any) -> Dict[str, Any]:  # noqa: D401
+    def embed_many(self, values: list[Any], **kwargs: Any) -> dict[str, Any]:  # noqa: D401
         """OpenAI-specific implementation of :pyfunc:`EmbeddingModel.embed_many`.
 
         Parameters
@@ -250,8 +359,8 @@ class OpenAIEmbeddingModel(EmbeddingModel):
             list of **strings** where each string represents a separate input
             (maximum length subject to the underlying model).
         **kwargs:
-            Additional arguments forwarded to :pyfunc:`openai.resources.embeddings.Embeddings.create`.
-            This can include e.g. ``user`` for request tracking or ``encoding_format``.
+            Additional arguments forwarded to the OpenAI embeddings ``create``
+            API (e.g. ``user`` for request tracking or ``encoding_format``).
 
         Returns
         -------
@@ -263,10 +372,10 @@ class OpenAIEmbeddingModel(EmbeddingModel):
         if not values:
             raise ValueError("values must contain at least one item.")
 
-        request_kwargs: Dict[str, Any] = {**self._default_kwargs, **kwargs}
+        request_kwargs: dict[str, Any] = {**self._default_kwargs, **kwargs}
 
         # Helper performing a single provider call.
-        def _single_call(batch: List[Any]) -> Dict[str, Any]:
+        def _single_call(batch: list[Any]) -> dict[str, Any]:
             resp = self._client.embeddings.create(  # type: ignore[attr-defined]
                 model=self._model,
                 input=batch,
@@ -291,7 +400,7 @@ class OpenAIEmbeddingModel(EmbeddingModel):
             }
 
         # Otherwise, split into multiple requests.
-        embeddings: List[List[float]] = []
+        embeddings: list[list[float]] = []
         aggregated_tokens: int = 0
         for i in range(0, len(values), self.max_batch_size):
             sub_batch = values[i : i + self.max_batch_size]
@@ -318,15 +427,15 @@ def _build_chat_messages(
     *,
     prompt: str | None,
     system: str | None,
-    messages: Optional[List[Dict[str, Any]]],
-) -> List[Dict[str, Any]]:
+    messages: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
     """Translate the SDK's high-level arguments into OpenAI chat messages."""
     # Helper – convert custom Core*Message objects or raw dicts into the
     # canonical OpenAI chat message structure.
     import json as _json
 
     if messages is not None:
-        chat_messages: List[Dict[str, Any]] = []
+        chat_messages: list[dict[str, Any]] = []
         if system:
             chat_messages.append({"role": "system", "content": system})
 
@@ -379,7 +488,7 @@ def _build_chat_messages(
 
 
 def openai(
-    model: str, *, api_key: Optional[str] = None, **default_kwargs: Any
+    model: str, *, api_key: str | None = None, **default_kwargs: Any
 ) -> OpenAIModel:  # noqa: N802
     """Return a configured :class:`OpenAIModel` instance.
 
@@ -412,7 +521,7 @@ def openai(
 def embedding(  # noqa: N802 – mimic TypeScript helper naming
     model: str,
     *,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     **default_kwargs: Any,
 ) -> OpenAIEmbeddingModel:
     """Factory helper that returns an :class:`OpenAIEmbeddingModel` instance.
